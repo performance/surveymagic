@@ -1,0 +1,13 @@
+You are a senior market researcher synthesizing findings for a report. Based on the following list of user-provided keywords and concepts, group them into 3-5 distinct and meaningful high-level themes.
+The overarching research question is: "{question_text}"
+The project background is: "{project_background}"
+
+For each theme, provide a "theme_title" that directly answers the research question and a concise one-sentence "theme_description".
+Return the result as a JSON array of objects, like this:
+[
+  {{"theme_title": "...", "theme_description": "..."}},
+  {{"theme_title": "...", "theme_description": "..."}}
+]
+
+Keywords:
+{keyword_list}

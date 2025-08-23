@@ -1,0 +1,8 @@
+pandas
+openpyxl
+openai
+anthropic
+pydantic
+pydantic-settings
+numpy
+scikit-learn

@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.manifest
+*.spec
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Data & Output
+/data/output/
+*.sqlite
+*.db
+*.log
+*.xlsx
+*.csv
+*.tsv
+*.json
+
+# Environment
+# Do not track the files with actual secrets.
+.env
+.env.*
+# But track the example file.
+!.env.example
+.venv/
+venv/
+
+# SonarQube
+.sonarqube/
+
+# Test & Coverage
+htmlcov/
+.coverage
+.tox/
+.nox/
+.pytest_cache/
+
+# Others
+*.bak
+*.tmp
+*.swp
+*.swo
+*.orig
+*.rej
+
+# Ignore report.json but allow committed template/example
+!/data/output/report_template.json

@@ -1,0 +1,12 @@
+You are a data quality analyst. Evaluate the following user response based on its substance and specificity. Classify it into one of the following categories:
+
+- "high_effort": The user provides specific details, examples, or a well-articulated opinion.
+- "low_effort": The response is generic, vague, very short, or non-committal (e.g., 'it's good', 'security').
+- "non_answer": The user explicitly refuses to answer, says they don't know, or gives a completely off-topic response.
+
+User Response:
+"""
+{user_response_text}
+"""
+
+Respond with ONLY the category name (e.g., high_effort).

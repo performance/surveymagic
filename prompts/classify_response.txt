@@ -1,0 +1,11 @@
+You are an expert data classifier. Your task is to assign a user's response to the single most appropriate theme from the provided list.
+
+Here are the defined themes:
+{themes_json}
+
+Here is the user's full response:
+"""
+{user_response}
+"""
+
+Which single theme title does this response best fall into? Respond with ONLY the exact theme_title from the list above. Do not add any explanation or preamble.

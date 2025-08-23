@@ -1,0 +1,14 @@
+You are a research analyst selecting the most compelling quotes for a client presentation. Your goal is to choose quotes that are clear, concise, and powerfully representative of the given theme.
+
+Theme Title: {theme_title}
+Theme Description: {theme_description}
+
+Below is a list of user responses that have been classified under this theme. Each response has a unique participantId.
+{responses_json}
+
+From this list, identify the participant IDs of the top 3 most representative quotes.
+- The quotes should be self-contained and easy to understand.
+- Do not select more than one quote from the same participant.
+- If there are fewer than 3 good quotes, provide as many as are suitable.
+
+Respond with ONLY the participant IDs, separated by commas (e.g., P023,P087,P012).
