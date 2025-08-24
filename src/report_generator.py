@@ -6,9 +6,9 @@ from typing import List, Dict, Any
 from src.llm_utils.llm_factory import LLMFactory, load_prompt
 from config.project_config import project_config
 
+
 def generate_question_narrative(
-    question_text: str,
-    analysis_data: Dict[str, Any]
+    question_text: str, analysis_data: Dict[str, Any]
 ) -> Dict[str, str]:
     """
     Generates the headline and summary for a single question's analysis.
@@ -24,33 +24,37 @@ def generate_question_narrative(
             {
                 "theme_title": theme.get("theme_title"),
                 "participant_count": theme.get("participant_count"),
-                "participant_percentage": f"{theme.get('participant_percentage', 0):.0%}"
-            } for theme in analysis_data.get("themes", [])
-        ]
+                "participant_percentage": f"{theme.get('participant_percentage', 0):.0%}",
+            }
+            for theme in analysis_data.get("themes", [])
+        ],
     }
 
     prompt = prompt_template.format(
         question_text=question_text,
-        project_background=project_config.project_background,
-        analysis_data_json=json.dumps(data_summary, indent=2)
+        project_background=project_config.resolved_project_background,
+        analysis_data_json=json.dumps(data_summary, indent=2),
     )
 
     messages = [{"role": "user", "content": prompt}]
-    
+
     try:
         response_json_str = client.chat_completion(
             messages,
             model_name=config.smart_model,
-            temperature=0.5 # A bit of creativity is good here
+            temperature=0.5,  # A bit of creativity is good here
         )
         narrative = json.loads(response_json_str)
         return {
             "headline": narrative.get("headline", "No headline generated."),
-            "summary": narrative.get("summary", "No summary generated.")
+            "summary": narrative.get("summary", "No summary generated."),
         }
     except (json.JSONDecodeError, Exception) as e:
-        print(f"Warning: Failed to generate narrative for question '{question_text}'. Error: {e}")
+        print(
+            f"Warning: Failed to generate narrative for question '{question_text}'. Error: {e}"
+        )
         return {"headline": "Error", "summary": "Error generating summary."}
+
 
 def generate_executive_summary(all_analyses: List[Dict[str, Any]]) -> str:
     """
@@ -66,38 +70,39 @@ def generate_executive_summary(all_analyses: List[Dict[str, Any]]) -> str:
         q_text = analysis.get("questionText", "Unknown Question")
         headline = analysis.get("headline", "")
         summary = analysis.get("summary", "")
-        summary_strings.append(f"For the question '{q_text}', the key finding was: '{headline}' - {summary}")
+        summary_strings.append(
+            f"For the question '{q_text}', the key finding was: '{headline}' - {summary}"
+        )
 
     all_summaries_text = "\n\n".join(summary_strings)
-    
+
     prompt = prompt_template.format(
-        project_background=project_config.project_background,
-        all_question_summaries=all_summaries_text
+        project_background=project_config.resolved_project_background,
+        all_question_summaries=all_summaries_text,
     )
     messages = [{"role": "user", "content": prompt}]
 
     try:
         return client.chat_completion(
-            messages,
-            model_name=config.smart_model,
-            temperature=0.5
+            messages, model_name=config.smart_model, temperature=0.5
         )
     except Exception as e:
         print(f"Warning: Failed to generate executive summary. Error: {e}")
         return "Error generating executive summary."
 
+
 def assemble_final_report(
     all_question_analyses: List[Dict[str, Any]],
-    report_title: str = "Consumer Privacy Market: Thematic Analysis"
+    report_title: str = "Consumer Privacy Market: Thematic Analysis",
 ) -> Dict[str, Any]:
     """Assembles the full report JSON object, including the executive summary."""
     print("Generating final executive summary...")
     executive_summary = generate_executive_summary(all_question_analyses)
-    
+
     final_report = {
         "reportTitle": report_title,
         "executiveSummary": executive_summary,
-        "questionAnalyses": all_question_analyses
+        "questionAnalyses": all_question_analyses,
     }
-    
+
     return final_report

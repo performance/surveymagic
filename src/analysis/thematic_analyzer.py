@@ -1,3 +1,23 @@
+import os
+from config.project_config import project_config
+import logging
+# --- Logging setup ---
+def setup_logging():
+    log_path = project_config.log_file
+    log_dir = os.path.dirname(log_path)
+    if log_dir and not os.path.exists(log_dir):
+        os.makedirs(log_dir, exist_ok=True)
+    log_level = getattr(logging, project_config.log_level.upper(), logging.INFO)
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler(log_path),
+            logging.StreamHandler()
+        ]
+    )
+
+setup_logging()
 import sqlite3
 import threading
 
@@ -40,6 +60,7 @@ from src.data_processing.trie_builder import Trie, TrieNode
 from src.llm_utils.llm_factory import LLMFactory, load_prompt
 from src.llm_utils.embedding_utils import get_embedding, cosine_similarity
 from config.project_config import project_config
+import logging
 
 class Theme(Dict):
     """A dictionary-like object representing a theme for easier type hinting."""
@@ -63,7 +84,7 @@ def _extract_keywords_from_trie(trie: Trie) -> Dict[str, List[str]]:
         cache_key = f"keyword:{user_response_text.strip()}"
         cached = llm_cache.get(cache_key)
         if cached is not None:
-            print(f"[CACHE] Keyword extraction hit for: {user_response_text[:50]}")
+            logging.debug(f"[CACHE] Keyword extraction hit for: {user_response_text[:50]}")
             return cached
         messages = [{"role": "user", "content": prompt}]
         try:
@@ -75,7 +96,7 @@ def _extract_keywords_from_trie(trie: Trie) -> Dict[str, List[str]]:
             llm_cache.set(cache_key, result)
             return result
         except Exception as e:
-            print(f"Warning: Could not extract keywords for node '{user_response_text[:50]}...': {e}")
+            logging.warning(f"Could not extract keywords for node '{user_response_text[:50]}...': {e}")
             return ""
 
     def _traverse(node: TrieNode):
@@ -104,18 +125,18 @@ def _generate_themes_for_sample(
         keyword_map.get(pid, []) for pid in participant_ids_sample
     ))
 
-    print("[DEBUG] Sample participant IDs:", participant_ids_sample)
-    print("[DEBUG] Sample keywords:", sample_keywords)
+    logging.debug(f"Sample participant IDs: {participant_ids_sample}")
+    logging.debug(f"Sample keywords: {sample_keywords}")
 
     if not sample_keywords:
-        print("[DEBUG] No keywords found for this sample. Skipping LLM call.")
+        logging.debug("No keywords found for this sample. Skipping LLM call.")
         return []
 
     # Use a Counter to get unique keywords and their frequencies for better prompting
     keyword_counts = Counter(sample_keywords)
     keyword_list_str = ", ".join([f"{k} ({v} mentions)" for k, v in keyword_counts.items()])
 
-    print("[DEBUG] Keyword list string for prompt:", keyword_list_str)
+    logging.debug(f"Keyword list string for prompt: {keyword_list_str}")
 
     client = LLMFactory.get_client("theme_generation")
     config = LLMFactory.get_task_config("theme_generation")
@@ -123,11 +144,11 @@ def _generate_themes_for_sample(
 
     prompt = prompt_template.format(
         question_text=question_text,
-        project_background=project_config.project_background,
+    project_background=project_config.resolved_project_background,
         keyword_list=keyword_list_str
     )
 
-    print("[DEBUG] Prompt sent to LLM:\n", prompt)
+    logging.debug(f"Prompt sent to LLM:\n{prompt}")
 
     messages = [{"role": "user", "content": prompt}]
 
@@ -144,7 +165,7 @@ def _generate_themes_for_sample(
         cache_key = f"theme:{prompt.strip()}"
         cached = llm_cache.get(cache_key)
         if cached is not None:
-            print(f"[CACHE] Theme generation hit for prompt: {prompt[:80]}")
+            logging.debug(f"[CACHE] Theme generation hit for prompt: {prompt[:80]}")
             return cached
         messages = [{"role": "user", "content": prompt}]
         try:
@@ -156,13 +177,13 @@ def _generate_themes_for_sample(
             llm_cache.set(cache_key, result)
             return result
         except Exception as e:
-            print(f"Warning: Could not generate themes for prompt: {prompt[:80]}... Error: {e}")
+            logging.warning(f"Could not generate themes for prompt: {prompt[:80]}... Error: {e}")
             return ""
 
     try:
         response_json_str = persistent_theme_generation(prompt)
         response_json_str = strip_json_markdown(response_json_str)
-        print("[DEBUG] Raw LLM response:", response_json_str)
+        logging.debug(f"Raw LLM response: {response_json_str}")
         themes_data = json.loads(response_json_str)
 
         # Add embeddings to each theme for the merging step
@@ -180,12 +201,12 @@ def _generate_themes_for_sample(
         return themes
 
     except json.JSONDecodeError as e:
-        print(f"[DEBUG] JSON decode error. Raw response: {response_json_str}")
-        print(f"Warning: Failed to generate or parse themes for a sample. Error: {e}")
+        logging.error(f"JSON decode error. Raw response: {response_json_str}")
+        logging.warning(f"Failed to generate or parse themes for a sample. Error: {e}")
         return []
     except Exception as e:
-        print(f"[DEBUG] Exception during LLM call or parsing. Raw response: {response_json_str}")
-        print(f"Warning: Failed to generate or parse themes for a sample. Error: {e}")
+        logging.error(f"Exception during LLM call or parsing. Raw response: {response_json_str}")
+        logging.warning(f"Failed to generate or parse themes for a sample. Error: {e}")
         return []
 
 
@@ -232,21 +253,21 @@ def find_stable_themes(trie: Trie, all_participant_ids: List[str], question_text
     """
     The main function to perform thematic analysis using bootstrapping validation.
     """
-    print("Step 1: Extracting and annotating keywords from the trie...")
+    logging.info("Step 1: Extracting and annotating keywords from the trie...")
     keyword_map = _extract_keywords_from_trie(trie)
     
-    print(f"Step 2: Generating themes for {project_config.k_samples_for_validation} bootstrap samples...")
+    logging.info(f"Step 2: Generating themes for {project_config.k_samples_for_validation} bootstrap samples...")
     all_candidate_themes: List[Theme] = []
     
     for i in range(project_config.k_samples_for_validation):
         # Bootstrap sampling (sampling with replacement)
         sample_pids = random.choices(all_participant_ids, k=len(all_participant_ids))
-        print(f"  - Running sample {i+1}/{project_config.k_samples_for_validation}...")
+        logging.info(f"  - Running sample {i+1}/{project_config.k_samples_for_validation}...")
         sample_themes = _generate_themes_for_sample(sample_pids, keyword_map, question_text)
         all_candidate_themes.extend(sample_themes)
         
-    print("Step 3: Merging and finalizing stable themes...")
+    logging.info("Step 3: Merging and finalizing stable themes...")
     final_themes = _merge_and_finalize_themes(all_candidate_themes)
     
-    print(f"Analysis complete. Found {len(final_themes)} stable themes.")
+    logging.info(f"Analysis complete. Found {len(final_themes)} stable themes.")
     return final_themes

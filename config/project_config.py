@@ -4,19 +4,24 @@ from pydantic import BaseModel
 from typing import List, Dict
 
 class ProjectConfig(BaseModel):
-    project_background: str = """
-The primary goal of this research study is to understand the consumer privacy market,
-specifically in the areas of network privacy (VPNs) and data deletion services. We aim
-to size the market, identify key customer needs and use cases, and validate product-
-market fit for CLIENT’s offerings in these spaces. The insights from this study will inform
-CLIENT’s go-to-market strategy and product roadmap to best address the needs of the
-target market.
-"""
-    learning_objectives: str = """
-- Objective 1: Understand the size and segmentation of the consumer privacy market.
-- Objective 2: Identify the key use cases, pain points, and unmet needs.
-- Objective 3: Assess willingness to pay and preferred pricing models.
-"""
+    project_background: str = "data/input/project_background.txt"  # Can be a string or a file path
+    learning_objectives: str = "data/input/learning_objectives.txt"  # Can be a string or a file path
+
+    def get_text_or_file(self, value: str) -> str:
+        import os
+        # If value is a file path and exists, load from file
+        if isinstance(value, str) and os.path.isfile(value):
+            with open(value, 'r', encoding='utf-8') as f:
+                return f.read()
+        return value
+
+    @property
+    def resolved_project_background(self) -> str:
+        return self.get_text_or_file(self.project_background)
+
+    @property
+    def resolved_learning_objectives(self) -> str:
+        return self.get_text_or_file(self.learning_objectives)
     # Analysis parameters
     k_samples_for_validation: int = 5
     min_theme_occurrence_percentage: float = 0.6 # Theme must appear in 60% of K samples
@@ -31,14 +36,20 @@ target market.
     
     # The columns in the Excel file to be analyzed
     # Note: Column A (ID) is assumed to be the first column
-    question_columns: List[str] = [
-        "vpn_selection",
-        "unmet_needs_private_location",
-        "unmet_needs_always_avail",
-        "current_vpn_feedback",
-        "remove_data_steps_probe_yes",
-        "remove_data_steps_probe_no"
-    ]
+    @property
+    def question_columns(self) -> List[str]:
+        import pandas as pd
+        try:
+            df = pd.read_excel(self.input_file)
+            # Exclude the first column (assumed to be ID)
+            return [col for col in df.columns if col.lower() != 'id']
+        except Exception as e:
+            print(f"Warning: Could not read columns from {self.input_file}: {e}")
+            # Fallback to empty list
+            return []
+    # Logging configuration
+    log_level: str = "INFO"  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+    log_file: str = "data/output/app_info.log"
 
 
 # Instantiate once to be imported by other modules
