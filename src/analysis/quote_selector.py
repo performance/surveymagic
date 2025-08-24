@@ -40,7 +40,9 @@ class PersistentLLMCache:
 llm_cache = PersistentLLMCache(db_path="data/output/llm_cache.sqlite")
 
 def _normalize_cache_key(prompt: str, model_name: str) -> str:
-    key_raw = f"quotes:{model_name}:{prompt.strip()}"
+    import re
+    norm_prompt = re.sub(r"\s+", " ", prompt).strip()
+    key_raw = f"quotes:{model_name}:{norm_prompt}"
     return hashlib.sha256(key_raw.encode("utf-8")).hexdigest()
 from config.project_config import project_config
 

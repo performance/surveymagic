@@ -7,7 +7,8 @@ def setup_logging():
     log_dir = os.path.dirname(log_path)
     if log_dir and not os.path.exists(log_dir):
         os.makedirs(log_dir, exist_ok=True)
-    log_level = getattr(logging, project_config.log_level.upper(), logging.INFO)
+    # log_level = getattr(logging, project_config.log_level.upper(), logging.INFO)
+    log_level = logging.DEBUG
     logging.basicConfig(
         level=log_level,
         format="%(asctime)s [%(levelname)s] %(message)s",
@@ -80,12 +81,16 @@ def _extract_keywords_from_trie(trie: Trie) -> Dict[str, List[str]]:
     prompt_template = load_prompt("extract_keywords")
 
     def persistent_keyword_extraction(user_response_text: str) -> str:
-        prompt = prompt_template.format(user_response_text=user_response_text)
-        cache_key = f"keyword:{user_response_text.strip()}"
+        import re
+        norm_text = re.sub(r"\s+", " ", user_response_text).strip()
+        prompt = prompt_template.format(user_response_text=norm_text)
+        cache_key = f"keyword:{norm_text}"
         cached = llm_cache.get(cache_key)
         if cached is not None:
-            logging.debug(f"[CACHE] Keyword extraction hit for: {user_response_text[:50]}")
+            logging.debug(f"[CACHE] Keyword extraction hit for: {norm_text[:50]}")
             return cached
+        else:
+            logging.debug(f"[CACHE] Keyword extraction miss for: {norm_text[:50]}")
         messages = [{"role": "user", "content": prompt}]
         try:
             result = client.chat_completion(
@@ -96,7 +101,7 @@ def _extract_keywords_from_trie(trie: Trie) -> Dict[str, List[str]]:
             llm_cache.set(cache_key, result)
             return result
         except Exception as e:
-            logging.warning(f"Could not extract keywords for node '{user_response_text[:50]}...': {e}")
+            logging.warning(f"Could not extract keywords for node '{norm_text[:50]}...': {e}")
             return ""
 
     def _traverse(node: TrieNode):
@@ -162,11 +167,15 @@ def _generate_themes_for_sample(
         return response
 
     def persistent_theme_generation(prompt: str) -> str:
-        cache_key = f"theme:{prompt.strip()}"
+        import re
+        norm_prompt = re.sub(r"\s+", " ", prompt).strip()
+        cache_key = f"theme:{norm_prompt}"
         cached = llm_cache.get(cache_key)
         if cached is not None:
-            logging.debug(f"[CACHE] Theme generation hit for prompt: {prompt[:80]}")
+            logging.debug(f"[CACHE] Theme generation hit for prompt: {norm_prompt[:80]}")
             return cached
+        else:
+            logging.debug(f"[CACHE] Theme generation miss for prompt: {norm_prompt[:80]}")
         messages = [{"role": "user", "content": prompt}]
         try:
             result = client.chat_completion(
@@ -177,7 +186,7 @@ def _generate_themes_for_sample(
             llm_cache.set(cache_key, result)
             return result
         except Exception as e:
-            logging.warning(f"Could not generate themes for prompt: {prompt[:80]}... Error: {e}")
+            logging.warning(f"Could not generate themes for prompt: {norm_prompt[:80]}... Error, result not cached: {e}")
             return ""
 
     try:

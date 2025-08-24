@@ -2,15 +2,17 @@
 
 import numpy as np
 from typing import List, Dict, Optional
-
- # removed unused import
 import sqlite3
 import threading
 import hashlib
 import logging
-
-
 from src.llm_utils.llm_factory import LLMFactory
+
+# --- Force global logging level to DEBUG ---
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
 
 # Persistent cache helper (copied from thematic_analyzer, but for embeddings)
 class PersistentEmbeddingCache:
@@ -46,8 +48,11 @@ embedding_cache = PersistentEmbeddingCache(db_path="data/output/embedding_cache.
 
 
 def _normalize_cache_key(text: str, model_name: str) -> str:
-    # Use a hash for long texts
-    key_raw = f"embedding:{model_name}:{text.strip()}"
+    # Normalize text exactly as sent to API: replace newlines, collapse whitespace, strip
+    import re
+    norm_text = text.replace("\n", " ")
+    norm_text = re.sub(r"\s+", " ", norm_text).strip()
+    key_raw = f"embedding:{model_name}:{norm_text}"
     return hashlib.sha256(key_raw.encode("utf-8")).hexdigest()
 
 def get_embedding(text: str, task_name: str = "embedding") -> List[float]:
@@ -60,9 +65,11 @@ def get_embedding(text: str, task_name: str = "embedding") -> List[float]:
     if cached is not None:
         logging.debug(f"[CACHE] Embedding hit for: {text[:50]} (model={model_name})")
         return cached
+    else:
+        logging.debug(f"[CACHE] Embedding miss for: {text[:50]} (model={model_name})")
     embedding = client.get_embedding(text, model_name=model_name)
     embedding_cache.set(cache_key, embedding)
-    logging.debug(f"[CACHE] Embedding miss, computed and cached for: {text[:50]} (model={model_name})")
+    logging.debug(f"[CACHE] Embedding computed and cached for: {text[:50]} (model={model_name})")
     return embedding
 
 def cosine_similarity(vec1: List[float], vec2: List[float]) -> float:
