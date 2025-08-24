@@ -4,6 +4,42 @@ import json
 from typing import List, Dict, Any
 
 from src.llm_utils.llm_factory import LLMFactory, load_prompt
+import sqlite3
+import threading
+import hashlib
+import logging
+
+# Persistent cache for LLM completions
+class PersistentLLMCache:
+    def __init__(self, db_path: str):
+        self.db_path = db_path
+        self.lock = threading.Lock()
+        self._init_db()
+
+    def _init_db(self):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS llm_cache (
+                    key TEXT PRIMARY KEY,
+                    value TEXT
+                )
+            """)
+
+    def get(self, key: str) -> str:
+        with self.lock, sqlite3.connect(self.db_path) as conn:
+            cur = conn.execute("SELECT value FROM llm_cache WHERE key=?", (key,))
+            row = cur.fetchone()
+            return row[0] if row else None
+
+    def set(self, key: str, value: str):
+        with self.lock, sqlite3.connect(self.db_path) as conn:
+            conn.execute("REPLACE INTO llm_cache (key, value) VALUES (?, ?)", (key, value))
+
+llm_cache = PersistentLLMCache(db_path="data/output/llm_cache.sqlite")
+
+def _normalize_cache_key(prompt: str, model_name: str, task: str) -> str:
+    key_raw = f"{task}:{model_name}:{prompt.strip()}"
+    return hashlib.sha256(key_raw.encode("utf-8")).hexdigest()
 from config.project_config import project_config
 
 
@@ -39,11 +75,19 @@ def generate_question_narrative(
     messages = [{"role": "user", "content": prompt}]
 
     try:
-        response_json_str = client.chat_completion(
-            messages,
-            model_name=config.smart_model,
-            temperature=0.5,  # A bit of creativity is good here
-        )
+        cache_key = _normalize_cache_key(prompt, config.smart_model, "headline_summary")
+        cached = llm_cache.get(cache_key)
+        if cached is not None:
+            logging.debug(f"[CACHE] Headline/summary hit for question '{question_text}'")
+            response_json_str = cached
+        else:
+            response_json_str = client.chat_completion(
+                messages,
+                model_name=config.smart_model,
+                temperature=0.5
+            )
+            llm_cache.set(cache_key, response_json_str)
+            logging.debug(f"[CACHE] Headline/summary miss, computed and cached for question '{question_text}'")
         narrative = json.loads(response_json_str)
         return {
             "headline": narrative.get("headline", "No headline generated."),
@@ -83,9 +127,18 @@ def generate_executive_summary(all_analyses: List[Dict[str, Any]]) -> str:
     messages = [{"role": "user", "content": prompt}]
 
     try:
-        return client.chat_completion(
-            messages, model_name=config.smart_model, temperature=0.5
-        )
+        cache_key = _normalize_cache_key(prompt, config.smart_model, "executive_summary")
+        cached = llm_cache.get(cache_key)
+        if cached is not None:
+            logging.debug(f"[CACHE] Executive summary hit.")
+            return cached
+        else:
+            result = client.chat_completion(
+                messages, model_name=config.smart_model, temperature=0.5
+            )
+            llm_cache.set(cache_key, result)
+            logging.debug(f"[CACHE] Executive summary miss, computed and cached.")
+            return result
     except Exception as e:
         print(f"Warning: Failed to generate executive summary. Error: {e}")
         return "Error generating executive summary."
