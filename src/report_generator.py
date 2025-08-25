@@ -126,10 +126,12 @@ def map_questions_to_objectives(
     # Sort question texts to ensure deterministic prompt generation
     question_texts = sorted([qa["question_text"] for qa in all_analyses])
 
-    prompt = prompt_template.format(
-        learning_objectives_json=json.dumps(objectives, indent=2),
-        question_texts_json=json.dumps(question_texts, indent=2),
-    )
+    substitutions = {
+        "learning_objectives_json": json.dumps(objectives, indent=2),
+        "question_texts_json": json.dumps(question_texts, indent=2),
+    }
+
+    prompt = prompt_factory.render("map_objectives_to_questions", substitutions)
 
     logging.debug(f"Prompt for objective mapping: {prompt}")
     messages = [{"role": "user", "content": prompt}]
