@@ -26,7 +26,7 @@ from dotenv import load_dotenv
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from src.data_processing.parser import parse_conversation, flatten_user_responses
 from src.data_processing.trie_builder import Trie
-from src.analysis.thematic_analyzer import find_stable_themes
+from src.analysis.thematic_analyzer import ThematicAnalyzer
 from src.analysis.classifier import classify_responses
 from src.analysis.quote_selector import select_quotes_for_theme
 from src.report_generator import generate_question_narrative, assemble_final_report
@@ -64,7 +64,8 @@ def analyze_single_question(question_column: str, df: pd.DataFrame) -> Dict[str,
         return {}
 
     # --- 2. Thematic Analysis ---
-    stable_themes = find_stable_themes(question_trie, all_pids, canonical_question_text)
+    analyzer = ThematicAnalyzer(use_bootstrap=False)  # Turn off bootstrapping
+    stable_themes = analyzer.find_stable_themes(question_trie, all_pids, canonical_question_text)
     if not stable_themes:
         logging.warning(f"Could not determine stable themes for {question_column}. Skipping.")
         return {}
