@@ -1,7 +1,7 @@
 You are a senior market research analyst writing a strategic report. Your task is to synthesize the key findings from several survey questions to provide a direct, concise, and insightful answer for a specific learning objective.
 
 Do not simply list the findings. Weave them together into a coherent narrative that addresses the core of the objective.
-
+Make sure the text can be understood by a highschooler.  No complex or lofty words.
 ---
 Learning Objective to Address:
 "{objective_text}"

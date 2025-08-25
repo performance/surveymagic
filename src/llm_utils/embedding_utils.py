@@ -2,71 +2,26 @@
 
 import numpy as np
 from typing import List, Dict, Optional
-import sqlite3
-import threading
-import hashlib
 import logging
 from src.llm_utils.llm_factory import LLMFactory
-
-# --- Force global logging level to DEBUG ---
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(message)s"
-)
-
-# Persistent cache helper (copied from thematic_analyzer, but for embeddings)
-class PersistentEmbeddingCache:
-    def __init__(self, db_path: str):
-        self.db_path = db_path
-        self.lock = threading.Lock()
-        self._init_db()
-
-    def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS embedding_cache (
-                    key TEXT PRIMARY KEY,
-                    value BLOB
-                )
-            """)
-
-    def get(self, key: str):
-        with self.lock, sqlite3.connect(self.db_path) as conn:
-            cur = conn.execute("SELECT value FROM embedding_cache WHERE key=?", (key,))
-            row = cur.fetchone()
-            if row:
-                import pickle
-                return pickle.loads(row[0])
-            return None
-
-    def set(self, key: str, value: object) -> None:
-        with self.lock, sqlite3.connect(self.db_path) as conn:
-            import pickle
-            conn.execute("REPLACE INTO embedding_cache (key, value) VALUES (?, ?)", (key, pickle.dumps(value)))
-
-embedding_cache = PersistentEmbeddingCache(db_path="data/output/embedding_cache.sqlite")
+from src.llm_utils.caching import PersistentCache, normalize_cache_key
+from config.project_config import project_config
 
 
-def _normalize_cache_key(text: str, model_name: str) -> str:
-    # Normalize text exactly as sent to API: replace newlines, collapse whitespace, strip
-    import re
-    norm_text = text.replace("\n", " ")
-    norm_text = re.sub(r"\s+", " ", norm_text).strip()
-    key_raw = f"embedding:{model_name}:{norm_text}"
-    return hashlib.sha256(key_raw.encode("utf-8")).hexdigest()
+embedding_cache = PersistentCache(db_path=project_config.cache_db)
 
 def get_embedding(text: str, task_name: str = "embedding", cache_only: bool = False) -> List[float]:
     """Computes and caches the embedding for a given text, using persistent cache. If cache_only is True, raises on cache miss."""
     client = LLMFactory.get_client(task_name)
     config = LLMFactory.get_task_config(task_name)
     model_name = config.embedding_model
-    cache_key = _normalize_cache_key(text, model_name)
+    cache_key = normalize_cache_key(["embedding", model_name, text])
     cached = embedding_cache.get(cache_key)
     if cached is not None:
-        logging.debug(f"[CACHE] Embedding hit for: {text[:50]} (model={model_name})")
+        logging.debug(f"[CACHE HIT] Embedding hit for: {text[:50]} (model={model_name})")
         return cached
     else:
-        logging.debug(f"[CACHE] Embedding miss for: {text[:50]} (model={model_name})")
+        logging.debug(f"[CACHE MISS] Embedding miss for: {text[:50]} (model={model_name})")
         if cache_only:
             raise RuntimeError(f"[CACHE-ONLY] Embedding cache miss for: {text[:50]} (model={model_name})")
     embedding = client.get_embedding(text, model_name=model_name)

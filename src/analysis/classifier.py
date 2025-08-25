@@ -1,50 +1,14 @@
 # src/analysis/classifier.py
 
 import json
-from typing import List, Dict, Optional
-
-
-from src.llm_utils.llm_factory import LLMFactory, load_prompt, prompt_factory
-import sqlite3
-import threading
-import hashlib
+from typing import List, Dict
 import logging
 
-# Persistent cache for LLM completions
+from src.llm_utils.llm_factory import LLMFactory, prompt_factory
+from src.llm_utils.caching import PersistentCache, normalize_cache_key
+from config.project_config import project_config
 
-from typing import Optional
-class PersistentLLMCache:
-    def __init__(self, db_path: str):
-        self.db_path = db_path
-        self.lock = threading.Lock()
-        self._init_db()
-
-    def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS llm_cache (
-                    key TEXT PRIMARY KEY,
-                    value TEXT
-                )
-            """)
-
-    def get(self, key: str) -> Optional[str]:
-        with self.lock, sqlite3.connect(self.db_path) as conn:
-            cur = conn.execute("SELECT value FROM llm_cache WHERE key=?", (key,))
-            row = cur.fetchone()
-            return row[0] if row else None
-
-    def set(self, key: str, value: str) -> None:
-        with self.lock, sqlite3.connect(self.db_path) as conn:
-            conn.execute("REPLACE INTO llm_cache (key, value) VALUES (?, ?)", (key, value))
-
-llm_cache = PersistentLLMCache(db_path="data/output/llm_cache.sqlite")
-
-def _normalize_cache_key(prompt: str, model_name: str) -> str:
-    import re
-    norm_prompt = re.sub(r"\s+", " ", prompt).strip()
-    key_raw = f"classify:{model_name}:{norm_prompt}"
-    return hashlib.sha256(key_raw.encode("utf-8")).hexdigest()
+llm_cache = PersistentCache(db_path=project_config.cache_db)
 
 def classify_responses(
     responses: Dict[str, str], 
@@ -66,7 +30,6 @@ def classify_responses(
     classifications = {}
     client = LLMFactory.get_client("classification")
     config = LLMFactory.get_task_config("classification")
-    prompt_template = load_prompt("classify_response")
     
     themes_json_str = json.dumps(themes, indent=2)
 
@@ -77,12 +40,12 @@ def classify_responses(
         }
         prompt = prompt_factory.render("classify_response", substitutions)
         messages = [{"role": "user", "content": prompt}]
-        canonical_subs = json.dumps(substitutions, sort_keys=True, separators=(",", ":"))
-        cache_key = _normalize_cache_key("classify_response:" + canonical_subs, config.fast_model)
+        
+        cache_key = normalize_cache_key(["classify_response", config.fast_model, json.dumps(substitutions, sort_keys=True)])
         try:
             cached = llm_cache.get(cache_key)
             if cached is not None:
-                logging.debug(f"[CACHE] Classification hit for participant {pid}")
+                logging.debug(f"[CACHE HIT] Classification hit for participant {pid}")
                 assigned_theme = cached.strip()
             else:
                 assigned_theme = client.chat_completion(
@@ -92,12 +55,12 @@ def classify_responses(
                     substitutions=substitutions
                 ).strip()
                 llm_cache.set(cache_key, assigned_theme)
-                logging.debug(f"[CACHE] Classification miss, computed and cached for participant {pid}")
+                logging.debug(f"[CACHE MISS] Classification miss, computed and cached for participant {pid}")
             valid_titles = {t['theme_title'] for t in themes}
             if assigned_theme in valid_titles:
                 classifications[pid] = assigned_theme
             else:
-                print(f"Warning: Classifier returned an invalid theme title '{assigned_theme}' for participant {pid}. Skipping.")
+                logging.warning(f"Warning: Classifier returned an invalid theme title '{assigned_theme}' for participant {pid}. Skipping.")
         except Exception as e:
-            print(f"Warning: Failed to classify response for participant {pid}. Error: {e}")
+            logging.warning(f"Warning: Failed to classify response for participant {pid}. Error: {e}")
     return classifications

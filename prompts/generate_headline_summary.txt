@@ -10,8 +10,8 @@ Here is the overall project background for context:
 Here is the structured data from the thematic analysis:
 {analysis_data_json}
 
-Based on this data, generate a response in the following JSON format:
+Based on this data, generate a response in the following JSON format. Return ONLY the JSON object, with no additional commentary or markdown formatting.
 {{
   "headline": "An engaging headline (under 20 words) that directly answers the question and captures the most significant insight.",
-  "summary": "A 1-2 sentence well-written summary that captures a high-level overview of the data, the general distribution, and any key tensions or outliers."
+  "summary": "A 1-2 sentence well-written summary that captures a high-level overview of the data, the general distribution, and any key tensions or outliers. Make sure the summary can be understood by a highschooler.  No complex or lofty words."
 }}

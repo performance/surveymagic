@@ -6,3 +6,4 @@ pydantic
 pydantic-settings
 numpy
 scikit-learn
+python-dotenv

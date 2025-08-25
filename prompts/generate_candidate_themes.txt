@@ -2,7 +2,7 @@ You are a senior market researcher synthesizing findings for a report. Based on 
 The overarching research question is: "{question_text}"
 The project background is: "{project_background}"
 
-For each theme, provide a "theme_title" that directly answers the research question and a concise one-sentence "theme_description".
+For each theme, provide a "theme_title" that directly answers the research question and a concise one-sentence "theme_description". Make sure the Description can be understood by a highschooler.  No complex or lofty words.
 Return the result as a JSON array of objects, like this:
 [
   {{"theme_title": "...", "theme_description": "..."}},

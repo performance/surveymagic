@@ -33,6 +33,7 @@ class ProjectLLMConfig(BaseSettings):
     class Config:
         env_file = '.env'
         env_file_encoding = 'utf-8'
+        extra = "allow"
 
 # Instantiate once to be imported by other modules
 llm_config = ProjectLLMConfig()

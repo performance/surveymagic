@@ -4,60 +4,15 @@ import json
 from typing import List, Dict, Any
 
 from src.llm_utils.llm_factory import LLMFactory, load_prompt, prompt_factory
-import sqlite3
-import threading
-import hashlib
-import logging
-
-
-# Persistent cache for LLM completions
-class PersistentLLMCache:
-    def __init__(self, db_path: str):
-        self.db_path = db_path
-        self.lock = threading.Lock()
-        self._init_db()
-
-    def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS llm_cache (
-                    key TEXT PRIMARY KEY,
-                    value TEXT
-                )
-            """
-            )
-
-    def get(self, key: str) -> str:
-        with self.lock, sqlite3.connect(self.db_path) as conn:
-            cur = conn.execute("SELECT value FROM llm_cache WHERE key=?", (key,))
-            row = cur.fetchone()
-            return row[0] if row else None
-
-    def set(self, key: str, value: str):
-        with self.lock, sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                "REPLACE INTO llm_cache (key, value) VALUES (?, ?)", (key, value)
-            )
-
-
-llm_cache = PersistentLLMCache(db_path="data/output/llm_cache.sqlite")
-
-
-def _normalize_cache_key(prompt: str, model_name: str, task: str) -> str:
-    import re
-
-    norm_prompt = re.sub(r"\s+", " ", prompt).strip()
-    key_raw = f"{task}:{model_name}:{norm_prompt}"
-    return hashlib.sha256(key_raw.encode("utf-8")).hexdigest()
-
-
+from src.llm_utils.caching import PersistentCache, normalize_cache_key
 from config.project_config import project_config
+import logging
+import os
 
+llm_cache = PersistentCache(db_path=project_config.cache_db)
 
-def generate_question_narrative(
-    question_text: str, analysis_data: Dict[str, Any]
-) -> Dict[str, str]:
+def generate_question_narrative(question_text: str, analysis_data: Dict[str, Any]) -> str:
+    import json
     """
     Generates the headline and summary for a single question's analysis.
     """
@@ -76,21 +31,21 @@ def generate_question_narrative(
             for theme in sorted_themes
         ],
     }
+    logging.debug(f"Analysis data for narrative generation: {json.dumps(data_summary, sort_keys=True, indent=2)}")
     substitutions = {
         "question_text": question_text,
         "project_background": project_config.resolved_project_background,
-        "analysis_data_json": json.dumps(data_summary, sort_keys=True, separators=(",", ":"))
+        "analysis_data_json": json.dumps(data_summary, sort_keys=True, separators=( ",", ":"))
     }
     prompt = prompt_factory.render("generate_headline_summary", substitutions)
     messages = [{"role": "user", "content": prompt}]
 
     import json
     try:
-        canonical_subs = json.dumps(substitutions, sort_keys=True, separators=(",", ":"))
-        cache_key = _normalize_cache_key("generate_headline_summary:" + canonical_subs, config.smart_model, "headline_summary")
+        cache_key = normalize_cache_key(["generate_headline_summary", config.smart_model, json.dumps(substitutions, sort_keys=True)])
         cached = llm_cache.get(cache_key)
         if cached is not None:
-            logging.debug(f"[CACHE] Headline/summary hit for question '{question_text}'")
+            logging.debug(f"[CACHE HIT] Headline/summary hit for question '{question_text}'")
             response_json_str = cached
         else:
             if os.environ.get("CACHE_ONLY_MODE", "0") == "1":
@@ -99,17 +54,17 @@ def generate_question_narrative(
                 messages, model_name=config.smart_model, temperature=0.0, substitutions=substitutions
             )
             llm_cache.set(cache_key, response_json_str)
-            logging.debug(f"[CACHE] Headline/summary miss, computed and cached for question '{question_text}'")
+            logging.debug(f"[CACHE MISS] Headline/summary miss, computed and cached for question '{question_text}'")
         narrative = json.loads(response_json_str)
         return {
             "headline": narrative.get("headline", "No headline generated."),
             "summary": narrative.get("summary", "No summary generated."),
         }
     except json.JSONDecodeError as e:
-        print(f"Warning: Failed to generate narrative for question '{question_text}'. Error: {e}")
+        logging.warning(f"Failed to generate narrative for question '{question_text}'. Error: {e}")
         return {"headline": "Error", "summary": "Error generating summary."}
     except Exception as e:
-        print(f"Warning: Failed to generate narrative for question '{question_text}'. Error: {e}")
+        logging.warning(f"Failed to generate narrative for question '{question_text}'. Error: {e}")
         return {"headline": "Error", "summary": "Error generating summary."}
 
 
@@ -138,11 +93,10 @@ def generate_executive_summary(all_analyses: List[Dict[str, Any]]) -> str:
 
     import json
     try:
-        canonical_subs = json.dumps(substitutions, sort_keys=True, separators=(",", ":"))
-        cache_key = _normalize_cache_key("generate_executive_summary:" + canonical_subs, config.smart_model, "executive_summary")
+        cache_key = normalize_cache_key(["generate_executive_summary", config.smart_model, json.dumps(substitutions, sort_keys=True)])
         cached = llm_cache.get(cache_key)
         if cached is not None:
-            logging.debug("[CACHE] Executive summary hit.")
+            logging.debug("[CACHE HIT] Executive summary hit.")
             return cached
         else:
             if os.environ.get("CACHE_ONLY_MODE", "0") == "1":
@@ -151,10 +105,10 @@ def generate_executive_summary(all_analyses: List[Dict[str, Any]]) -> str:
                 messages, model_name=config.smart_model, temperature=0.0, substitutions=substitutions
             )
             llm_cache.set(cache_key, result)
-            logging.debug("[CACHE] Executive summary miss, computed and cached.")
+            logging.debug("[CACHE MISS] Executive summary miss, computed and cached.")
             return result
     except Exception as e:
-        print(f"Warning: Failed to generate executive summary. Error: {e}")
+        logging.warning(f"Failed to generate executive summary. Error: {e}")
         return "Error generating executive summary."
 
 
@@ -169,22 +123,26 @@ def map_questions_to_objectives(
     config = LLMFactory.get_task_config("synthesis")
     prompt_template = load_prompt("map_objectives_to_questions")
 
-    question_texts = [qa["question_text"] for qa in all_analyses]
+    # Sort question texts to ensure deterministic prompt generation
+    question_texts = sorted([qa["question_text"] for qa in all_analyses])
 
     prompt = prompt_template.format(
         learning_objectives_json=json.dumps(objectives, indent=2),
         question_texts_json=json.dumps(question_texts, indent=2),
     )
 
+    logging.debug(f"Prompt for objective mapping: {prompt}")
     messages = [{"role": "user", "content": prompt}]
 
     try:
-        cache_key = _normalize_cache_key(
-            prompt, config.smart_model, "objective_mapping"
-        )
+        cache_key = normalize_cache_key([
+            "map_objectives_to_questions",
+            config.smart_model,
+            prompt,
+        ])
         cached = llm_cache.get(cache_key)
         if cached is not None:
-            logging.debug("[CACHE] Objective mapping hit.")
+            logging.debug("[CACHE HIT] Objective mapping hit.")
             mapping_json = json.loads(cached)
         else:
             if os.environ.get("CACHE_ONLY_MODE", "0") == "1":
@@ -193,7 +151,7 @@ def map_questions_to_objectives(
                 messages, model_name=config.smart_model, temperature=0.0
             )
             llm_cache.set(cache_key, response_str)
-            logging.debug("[CACHE] Objective mapping miss, computed and cached.")
+            logging.debug("[CACHE MISS] Objective mapping miss, computed and cached.")
             mapping_json = json.loads(response_str)
 
         # Reconstruct the map with full analysis objects
@@ -206,7 +164,7 @@ def map_questions_to_objectives(
         return final_map
 
     except (json.JSONDecodeError, Exception) as e:
-        print(f"Warning: Failed to map objectives to questions. Error: {e}")
+        logging.warning(f"Failed to map objectives to questions. Error: {e}")
         return {obj: [] for obj in objectives}
 
 
@@ -237,13 +195,15 @@ def synthesize_objective_insights(
         messages = [{"role": "user", "content": prompt}]
 
         try:
-            cache_key = _normalize_cache_key(
-                prompt, config.smart_model, "objective_synthesis"
-            )
+            cache_key = normalize_cache_key([
+                "synthesize_objective_insight",
+                config.smart_model,
+                prompt,
+            ])
             cached = llm_cache.get(cache_key)
             if cached is not None:
                 logging.debug(
-                    f"[CACHE] Synthesis hit for objective: {objective[:30]}..."
+                    f"[CACHE HIT] Synthesis hit for objective: {objective[:30]}..."
                 )
                 synthesis_text = cached
             else:
@@ -254,7 +214,7 @@ def synthesize_objective_insights(
                 )
                 llm_cache.set(cache_key, synthesis_text)
                 logging.debug(
-                    f"[CACHE] Synthesis miss for objective: {objective[:30]}..."
+                    f"[CACHE MISS] Synthesis miss for objective: {objective[:30]}..."
                 )
 
             insights.append(
@@ -271,12 +231,9 @@ def synthesize_objective_insights(
                 }
             )
         except Exception as e:
-            print(
-                f"Warning: Failed to synthesize insight for objective '{objective}'. Error: {e}"
-            )
+            logging.warning(f"Failed to synthesize insight for objective '{objective}'. Error: {e}")
 
     return insights
-
 
 def assemble_final_report(
     all_question_analyses: List[Dict[str, Any]],
@@ -285,15 +242,15 @@ def assemble_final_report(
     """Assembles the full report, now including the objective-driven layer."""
 
     # --- New Objective Synthesis Steps ---
-    print("Mapping questions to learning objectives...")
+    logging.info("Mapping questions to learning objectives...")
     objectives_list = project_config.resolved_learning_objectives_list
     objective_map = map_questions_to_objectives(objectives_list, all_question_analyses)
 
-    print("Synthesizing insights for each learning objective...")
+    logging.info("Synthesizing insights for each learning objective...")
     objective_insights = synthesize_objective_insights(objective_map)
 
     # --- Existing Executive Summary Step ---
-    print("Generating final executive summary...")
+    logging.info("Generating final executive summary...")
     executive_summary = generate_executive_summary(all_question_analyses)
 
     final_report = {
@@ -303,4 +260,18 @@ def assemble_final_report(
         "question_analyses": all_question_analyses,
     }
 
+    return final_report
+
+def generate_report(all_question_analyses: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Generates the full report from the analysis data.
+    """
+    logging.info("Generating final executive summary...")
+    executive_summary = generate_executive_summary(all_question_analyses)
+
+    final_report = {
+        "report_title": "Consumer Privacy Market: Thematic Analysis",
+        "executive_summary": executive_summary,
+        "question_analyses": all_question_analyses,
+    }
     return final_report

@@ -2,24 +2,6 @@ from src.llm_utils.llm_factory import prompt_factory
 import os
 from config.project_config import project_config
 import logging
-# --- Logging setup ---
-def setup_logging():
-    log_path = project_config.log_file
-    log_dir = os.path.dirname(log_path)
-    if log_dir and not os.path.exists(log_dir):
-        os.makedirs(log_dir, exist_ok=True)
-    # ...existing code...
-    log_level = logging.DEBUG
-    logging.basicConfig(
-        level=log_level,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[
-            logging.FileHandler(log_path),
-            logging.StreamHandler()
-        ]
-    )
-
-setup_logging()
 import sqlite3
 import threading
 
@@ -66,7 +48,6 @@ import logging
 
 
 
-
 def _extract_keywords_from_trie(trie: Trie) -> Dict[str, List[str]]:
     """Traverses the trie and extracts keywords, mapping them to participant IDs."""
     from collections import defaultdict
@@ -83,7 +64,7 @@ def _extract_keywords_from_trie(trie: Trie) -> Dict[str, List[str]]:
         messages = [{"role": "user", "content": prompt}]
         import json
         try:
-            canonical_subs = json.dumps(substitutions, sort_keys=True, separators=(",", ":"))
+            canonical_subs = json.dumps(substitutions, sort_keys=True, separators=( ",", ":"))
             cache_key = f"extract_keywords:{canonical_subs}"
             cached = llm_cache.get(cache_key)
             if cached:
@@ -164,7 +145,7 @@ def _generate_themes_for_sample(
 
     def persistent_theme_generation(substitutions: dict[str, str], cache_only: bool = False) -> str:
         import json
-        canonical_subs = json.dumps(substitutions, sort_keys=True, separators=(",", ":"))
+        canonical_subs = json.dumps(substitutions, sort_keys=True, separators=( ",", ":"))
         cache_key = f"generate_candidate_themes:{canonical_subs}"
         try:
             cached = llm_cache.get(cache_key)
@@ -232,7 +213,11 @@ def _merge_and_finalize_themes(all_candidate_themes: List[Dict[str, Any]]) -> Li
                     break
         if not found_cluster:
             clusters.append([theme])
-            
+    
+    logging.info(f"Found {len(clusters)} initial clusters.")
+    for i, cluster in enumerate(clusters):
+        logging.info(f"Cluster {i+1} size: {len(cluster)}")
+
     # Filter for stable themes (appeared in enough K-samples)
     min_occurrences = int(project_config.k_samples_for_validation * project_config.min_theme_occurrence_percentage)
     stable_clusters = [cluster for cluster in clusters if len(cluster) >= min_occurrences]

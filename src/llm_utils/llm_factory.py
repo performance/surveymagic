@@ -1,5 +1,5 @@
 import re
-
+import logging
 class PromptFactory:
     """Loads and manages prompt templates from the prompts/ directory."""
     def __init__(self, prompts_dir: str = 'prompts'):
@@ -118,7 +118,7 @@ class LLMClient:
             response = self._client.embeddings.create(input=[text], model=model_name)
             return response.data[0].embedding
         else:
-            print("Warning: Anthropic provider selected but does not have an embedding API. Falling back to OpenAI for embeddings.")
+            logging.info("Warning: Anthropic provider selected but does not have an embedding API. Falling back to OpenAI for embeddings.")
             openai_client = OpenAI(api_key=llm_config.openai_api_key)
             response = openai_client.embeddings.create(input=[text], model=model_name)
             return response.data[0].embedding

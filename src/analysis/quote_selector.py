@@ -1,55 +1,18 @@
 # src/analysis/quote_selector.py
 
 import json
+import json
 from typing import List, Dict, Any
 
 from src.llm_utils.llm_factory import LLMFactory, load_prompt, prompt_factory
-import sqlite3
-import threading
-import hashlib
+from src.llm_utils.caching import PersistentCache, normalize_cache_key
+from config.project_config import project_config
 import logging
 
-# Persistent cache for LLM completions
+llm_cache = PersistentCache(db_path=project_config.cache_db)
 
-from typing import Optional
-class PersistentLLMCache:
-    def __init__(self, db_path: str):
-        self.db_path = db_path
-        self.lock = threading.Lock()
-        self._init_db()
-
-    def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS llm_cache (
-                    key TEXT PRIMARY KEY,
-                    value TEXT
-                )
-            """)
-
-    def get(self, key: str) -> Optional[str]:
-        with self.lock, sqlite3.connect(self.db_path) as conn:
-            cur = conn.execute("SELECT value FROM llm_cache WHERE key=?", (key,))
-            row = cur.fetchone()
-            return row[0] if row else None
-
-    def set(self, key: str, value: str) -> None:
-        with self.lock, sqlite3.connect(self.db_path) as conn:
-            conn.execute("REPLACE INTO llm_cache (key, value) VALUES (?, ?)", (key, value))
-
-llm_cache = PersistentLLMCache(db_path="data/output/llm_cache.sqlite")
-
-def _normalize_cache_key(prompt: str, model_name: str) -> str:
-    import re
-    norm_prompt = re.sub(r"\s+", " ", prompt).strip()
-    key_raw = f"quotes:{model_name}:{norm_prompt}"
-    return hashlib.sha256(key_raw.encode("utf-8")).hexdigest()
-from config.project_config import project_config
-
-def select_quotes_for_theme(
-    theme: Dict[str, str],
-    classified_responses: List[Dict[str, str]]
-) -> List[Dict[str, str]]:
+def select_quotes_for_theme(theme: Dict[str, str], classified_responses: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    import json
     """
     Selects the best ~3 supporting quotes for a single theme.
 
@@ -79,11 +42,10 @@ def select_quotes_for_theme(
     
     import json
     try:
-        canonical_subs = json.dumps(substitutions, sort_keys=True, separators=(",", ":"))
-        cache_key = _normalize_cache_key("select_quotes:" + canonical_subs, config.smart_model)
+        cache_key = normalize_cache_key(["select_quotes", config.smart_model, json.dumps(substitutions, sort_keys=True)])
         cached = llm_cache.get(cache_key)
         if cached is not None:
-            logging.debug(f"[CACHE] Quote selection hit for theme '{theme['theme_title']}'")
+            logging.debug(f"[CACHE HIT] Quote selection hit for theme '{theme['theme_title']}'")
             raw_ids = cached
         else:
             raw_ids = client.chat_completion(
@@ -93,7 +55,7 @@ def select_quotes_for_theme(
                 substitutions=substitutions
             )
             llm_cache.set(cache_key, raw_ids)
-            logging.debug(f"[CACHE] Quote selection miss, computed and cached for theme '{theme['theme_title']}'")
+            logging.debug(f"[CACHE MISS] Quote selection miss, computed and cached for theme '{theme['theme_title']}'")
         selected_pids = {pid.strip() for pid in raw_ids.split(',') if pid.strip()}
         quotes = []
         for resp in classified_responses:
@@ -105,5 +67,5 @@ def select_quotes_for_theme(
                 selected_pids.remove(resp['participant_id'])
         return quotes
     except Exception as e:
-        print(f"Warning: Failed to select quotes for theme '{theme['theme_title']}'. Error: {e}")
+        logging.info(f"Warning: Failed to select quotes for theme '{theme['theme_title']}'. Error: {e}")
         return []

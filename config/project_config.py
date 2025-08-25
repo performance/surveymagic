@@ -43,7 +43,7 @@ class ProjectConfig(BaseModel):
     k_samples_for_validation: int = 5
     min_theme_occurrence_percentage: float = 0.6 # Theme must appear in 60% of K samples
     similarity_threshold_trie_coalescing: float = 0.90
-    similarity_threshold_theme_merging: float = 0.85
+    similarity_threshold_theme_merging: float = 0.75
     max_quotes_per_theme: int = 3
     
     # File paths
@@ -61,12 +61,14 @@ class ProjectConfig(BaseModel):
             # Exclude the first column (assumed to be ID)
             return [col for col in df.columns if col.lower() != 'id']
         except Exception as e:
-            print(f"Warning: Could not read columns from {self.input_file}: {e}")
+            import logging
+            logging.warning(f"Could not read columns from {self.input_file}: {e}")
             # Fallback to empty list
             return []
     # Logging configuration
     log_level: str = "DEBUG"  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
     log_file: str = "data/output/app_info.log"
+    cache_db: str = "data/output/cache.sqlite"
 
 
 # Instantiate once to be imported by other modules
