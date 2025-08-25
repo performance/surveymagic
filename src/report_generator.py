@@ -112,16 +112,12 @@ def generate_executive_summary(all_analyses: List[Dict[str, Any]]) -> str:
         return "Error generating executive summary."
 
 
-# Add these new functions inside src/report_generator.py
-
-
 def map_questions_to_objectives(
     objectives: List[str], all_analyses: List[Dict[str, Any]]
 ) -> Dict[str, List[Dict[str, Any]]]:
     """Maps learning objectives to the question analyses that inform them."""
     client = LLMFactory.get_client("synthesis")
     config = LLMFactory.get_task_config("synthesis")
-    prompt_template = load_prompt("map_objectives_to_questions")
 
     # Sort question texts to ensure deterministic prompt generation
     question_texts = sorted([qa["question_text"] for qa in all_analyses])
@@ -145,7 +141,7 @@ def map_questions_to_objectives(
         cached = llm_cache.get(cache_key)
         if cached is not None:
             logging.debug("[CACHE HIT] Objective mapping hit.")
-            mapping_json = json.loads(cached)
+            response_str = cached
         else:
             if os.environ.get("CACHE_ONLY_MODE", "0") == "1":
                 raise RuntimeError("[CACHE-ONLY] Objective mapping cache miss.")
@@ -154,7 +150,15 @@ def map_questions_to_objectives(
             )
             llm_cache.set(cache_key, response_str)
             logging.debug("[CACHE MISS] Objective mapping miss, computed and cached.")
-            mapping_json = json.loads(response_str)
+        
+        if response_str.startswith("```json"):
+            response_str = response_str.split("```json", 1)[1].strip()
+            response_str = response_str.split("```", 1)[0].strip()
+        elif response_str.startswith("```"):
+            response_str = response_str.split("```", 1)[1].strip()
+            response_str = response_str.split("```", 1)[0].strip()
+
+        mapping_json = json.loads(response_str)
 
         # Reconstruct the map with full analysis objects
         final_map = {}
@@ -165,7 +169,11 @@ def map_questions_to_objectives(
             ]
         return final_map
 
-    except (json.JSONDecodeError, Exception) as e:
+    except json.JSONDecodeError as e:
+        logging.error(f"Failed to decode JSON for objective mapping. Raw response: {response_str}")
+        logging.warning(f"Failed to map objectives to questions. Error: {e}")
+        return {obj: [] for obj in objectives}
+    except Exception as e:
         logging.warning(f"Failed to map objectives to questions. Error: {e}")
         return {obj: [] for obj in objectives}
 
@@ -177,7 +185,6 @@ def synthesize_objective_insights(
     insights = []
     client = LLMFactory.get_client("synthesis")
     config = LLMFactory.get_task_config("synthesis")
-    prompt_template = load_prompt("synthesize_objective_insight")
 
     for objective, analyses in objective_map.items():
         if not analyses:
@@ -188,11 +195,13 @@ def synthesize_objective_insights(
             key_findings.append(
                 f"- From Q: '{qa['headline']}', we learned: {qa['summary']}"
             )
+        
+        substitutions = {
+            "objective_text": objective,
+            "key_findings_text": "\n".join(key_findings),
+        }
 
-        prompt = prompt_template.format(
-            objective_text=objective,
-            key_findings_text="\n".join(key_findings),
-        )
+        prompt = prompt_factory.render("synthesize_objective_insight", substitutions)
 
         messages = [{"role": "user", "content": prompt}]
 
