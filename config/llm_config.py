@@ -1,7 +1,8 @@
+from pydantic_settings import BaseSettings
 # config/llm_config.py
 
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from typing import Optional
 from typing import Literal, Dict
 
 class LLMTaskConfig(BaseSettings):
@@ -14,8 +15,8 @@ class LLMTaskConfig(BaseSettings):
 
 class ProjectLLMConfig(BaseSettings):
     """Top-level LLM configuration, reads from .env file."""
-    openai_api_key: str = Field(..., env='OPENAI_API_KEY')
-    anthropic_api_key: str = Field(..., env='ANTHROPIC_API_KEY')
+    openai_api_key: Optional[str] = None
+    anthropic_api_key: Optional[str] = None
 
     # Default task configurations can be overridden by the user
     tasks: Dict[str, LLMTaskConfig] = {
@@ -26,6 +27,8 @@ class ProjectLLMConfig(BaseSettings):
         "embedding": LLMTaskConfig(provider="openai"),
         "quality_assessment": LLMTaskConfig(provider="openai"),
     }
+
+    cache_only_mode: bool = True
 
     class Config:
         env_file = '.env'

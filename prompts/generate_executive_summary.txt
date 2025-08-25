@@ -6,6 +6,7 @@ Here is the overall project background:
 """
 {project_background}
 """
+A Very important rule is that the generated summary should be honest and not use filer or fluff words/phrases to fill up space.
 
 Here are the key findings (headlines and summaries) from each of the questions analyzed:
 {all_question_summaries}

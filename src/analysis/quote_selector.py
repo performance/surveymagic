@@ -3,7 +3,7 @@
 import json
 from typing import List, Dict, Any
 
-from src.llm_utils.llm_factory import LLMFactory, load_prompt
+from src.llm_utils.llm_factory import LLMFactory, load_prompt, prompt_factory
 import sqlite3
 import threading
 import hashlib
@@ -65,24 +65,22 @@ def select_quotes_for_theme(
 
     client = LLMFactory.get_client("synthesis") # Use a smart model for this nuanced task
     config = LLMFactory.get_task_config("synthesis")
-    prompt_template = load_prompt("select_quotes")
-    
-    # Format responses for the prompt, keeping it clean
     responses_for_prompt = [
         {"participantId": r['participant_id'], "responseText": r['response']} 
         for r in classified_responses
     ]
-    
-    prompt = prompt_template.format(
-        theme_title=theme['theme_title'],
-        theme_description=theme['theme_description'],
-        responses_json=json.dumps(responses_for_prompt, indent=2)
-    )
-    
+    substitutions = {
+        "theme_title": theme['theme_title'],
+        "theme_description": theme['theme_description'],
+        "responses_json": json.dumps(responses_for_prompt, sort_keys=True, separators=(",", ":"))
+    }
+    prompt = prompt_factory.render("select_quotes", substitutions)
     messages = [{"role": "user", "content": prompt}]
     
+    import json
     try:
-        cache_key = _normalize_cache_key(prompt, config.smart_model)
+        canonical_subs = json.dumps(substitutions, sort_keys=True, separators=(",", ":"))
+        cache_key = _normalize_cache_key("select_quotes:" + canonical_subs, config.smart_model)
         cached = llm_cache.get(cache_key)
         if cached is not None:
             logging.debug(f"[CACHE] Quote selection hit for theme '{theme['theme_title']}'")
@@ -91,7 +89,8 @@ def select_quotes_for_theme(
             raw_ids = client.chat_completion(
                 messages,
                 model_name=config.smart_model,
-                temperature=0.2
+                temperature=0.0,
+                substitutions=substitutions
             )
             llm_cache.set(cache_key, raw_ids)
             logging.debug(f"[CACHE] Quote selection miss, computed and cached for theme '{theme['theme_title']}'")

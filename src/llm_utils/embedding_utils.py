@@ -55,8 +55,8 @@ def _normalize_cache_key(text: str, model_name: str) -> str:
     key_raw = f"embedding:{model_name}:{norm_text}"
     return hashlib.sha256(key_raw.encode("utf-8")).hexdigest()
 
-def get_embedding(text: str, task_name: str = "embedding") -> List[float]:
-    """Computes and caches the embedding for a given text, using persistent cache."""
+def get_embedding(text: str, task_name: str = "embedding", cache_only: bool = False) -> List[float]:
+    """Computes and caches the embedding for a given text, using persistent cache. If cache_only is True, raises on cache miss."""
     client = LLMFactory.get_client(task_name)
     config = LLMFactory.get_task_config(task_name)
     model_name = config.embedding_model
@@ -67,6 +67,8 @@ def get_embedding(text: str, task_name: str = "embedding") -> List[float]:
         return cached
     else:
         logging.debug(f"[CACHE] Embedding miss for: {text[:50]} (model={model_name})")
+        if cache_only:
+            raise RuntimeError(f"[CACHE-ONLY] Embedding cache miss for: {text[:50]} (model={model_name})")
     embedding = client.get_embedding(text, model_name=model_name)
     embedding_cache.set(cache_key, embedding)
     logging.debug(f"[CACHE] Embedding computed and cached for: {text[:50]} (model={model_name})")

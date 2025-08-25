@@ -141,7 +141,7 @@ class LLMClient:
         else:
             raise ValueError(f"Unsupported LLM provider: {self.config.provider}")
 
-    def chat_completion(self, messages: list[dict], model_name: str, temperature: float = 0.7, max_tokens: int = 1000):
+    def chat_completion(self, messages: list[dict], model_name: str, temperature: float = 0.0, max_tokens: int = 1000):
         if self.config.provider == 'openai':
             response = self._client.chat.completions.create(
                 model=model_name,

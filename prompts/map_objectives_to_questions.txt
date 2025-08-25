@@ -1,0 +1,19 @@
+You are a research strategist. Your task is to align the questions asked in a survey with the study's high-level learning objectives. For each objective, identify which of the survey questions are most relevant to answering it.
+
+A question can be relevant to more than one objective. If no questions are relevant to an objective, return an empty list for it.
+
+Respond in a valid JSON format mapping each objective to a list of its relevant question texts.
+
+Example Format:
+{{
+  "Objective Text 1": ["Relevant Question Text A", "Relevant Question Text B"],
+  "Objective Text 2": ["Relevant Question Text B"]
+}}
+
+---
+Here are the learning objectives:
+{learning_objectives_json}
+
+---
+Here are the survey questions that were asked:
+{question_texts_json}

@@ -1,3 +1,4 @@
+from src.llm_utils.llm_factory import prompt_factory
 import os
 from config.project_config import project_config
 import logging
@@ -7,7 +8,7 @@ def setup_logging():
     log_dir = os.path.dirname(log_path)
     if log_dir and not os.path.exists(log_dir):
         os.makedirs(log_dir, exist_ok=True)
-    # log_level = getattr(logging, project_config.log_level.upper(), logging.INFO)
+    # ...existing code...
     log_level = logging.DEBUG
     logging.basicConfig(
         level=log_level,
@@ -38,7 +39,7 @@ class PersistentLLMCache:
                 )
             """)
 
-    def get(self, key: str) -> str:
+    def get(self, key: str) -> str | None:
         with self.lock, sqlite3.connect(self.db_path) as conn:
             cur = conn.execute("SELECT value FROM llm_cache WHERE key=?", (key,))
             row = cur.fetchone()
@@ -58,48 +59,46 @@ from collections import Counter
 from itertools import chain
 
 from src.data_processing.trie_builder import Trie, TrieNode
-from src.llm_utils.llm_factory import LLMFactory, load_prompt
+from src.llm_utils.llm_factory import LLMFactory
 from src.llm_utils.embedding_utils import get_embedding, cosine_similarity
 from config.project_config import project_config
 import logging
 
-class Theme(Dict):
-    """A dictionary-like object representing a theme for easier type hinting."""
-    theme_title: str
-    theme_description: str
-    embedding: List[float]
+
 
 
 def _extract_keywords_from_trie(trie: Trie) -> Dict[str, List[str]]:
     """Traverses the trie and extracts keywords, mapping them to participant IDs."""
     from collections import defaultdict
-    keyword_map = defaultdict(list) # Aggregate keywords per participant
+    keyword_map: defaultdict[str, List[str]] = defaultdict(list) # Aggregate keywords per participant
 
     # Annotate user nodes with keywords using an LLM
     client = LLMFactory.get_client("keyword_extraction")
     config = LLMFactory.get_task_config("keyword_extraction")
-    prompt_template = load_prompt("extract_keywords")
-
     def persistent_keyword_extraction(user_response_text: str) -> str:
         import re
         norm_text = re.sub(r"\s+", " ", user_response_text).strip()
-        prompt = prompt_template.format(user_response_text=norm_text)
-        cache_key = f"keyword:{norm_text}"
-        cached = llm_cache.get(cache_key)
-        if cached is not None:
-            logging.debug(f"[CACHE] Keyword extraction hit for: {norm_text[:50]}")
-            return cached
-        else:
-            logging.debug(f"[CACHE] Keyword extraction miss for: {norm_text[:50]}")
+        substitutions = {"user_response_text": norm_text}
+        prompt = prompt_factory.render("extract_keywords", substitutions)
         messages = [{"role": "user", "content": prompt}]
+        import json
         try:
-            result = client.chat_completion(
-                messages,
-                model_name=config.fast_model,
-                temperature=0.1
-            )
-            llm_cache.set(cache_key, result)
-            return result
+            canonical_subs = json.dumps(substitutions, sort_keys=True, separators=(",", ":"))
+            cache_key = f"extract_keywords:{canonical_subs}"
+            cached = llm_cache.get(cache_key)
+            if cached:
+                logging.debug(f"[CACHE HIT] Keyword extraction for: {norm_text[:50]}")
+                return cached
+            else:
+                logging.debug(f"[CACHE MISS ] Keyword extraction for: {norm_text[:50]}")
+                result = client.chat_completion(
+                    messages,
+                    model_name=config.fast_model,
+                    temperature=0.0,
+                    substitutions=substitutions
+                )
+                llm_cache.set(cache_key, result)
+                return result
         except Exception as e:
             logging.warning(f"Could not extract keywords for node '{norm_text[:50]}...': {e}")
             return ""
@@ -109,7 +108,8 @@ def _extract_keywords_from_trie(trie: Trie) -> Dict[str, List[str]]:
             raw_keywords = persistent_keyword_extraction(node.text)
             keywords = [k.strip() for k in raw_keywords.split(',') if k.strip()]
             for pid in node.participant_ids:
-                keyword_map[pid].extend(keywords)
+                if keywords:
+                    keyword_map[pid].extend(keywords)
         for child in node.children:
             _traverse(child)
 
@@ -121,7 +121,7 @@ def _generate_themes_for_sample(
     participant_ids_sample: List[str],
     keyword_map: Dict[str, List[str]],
     question_text: str
-) -> List[Theme]:
+) -> List[Dict[str, Any]]:
     """Generates a candidate set of themes for a single sample of participants."""
     
 
@@ -139,23 +139,19 @@ def _generate_themes_for_sample(
 
     # Use a Counter to get unique keywords and their frequencies for better prompting
     keyword_counts = Counter(sample_keywords)
-    keyword_list_str = ", ".join([f"{k} ({v} mentions)" for k, v in keyword_counts.items()])
+    sorted_keyword_counds = sorted(keyword_counts.items(), key=lambda x: x[1], reverse=True)
+
+    keyword_list_str = ",\n".join([f"{k} ({v} mentions)" for k, v in sorted_keyword_counds])
 
     logging.debug(f"Keyword list string for prompt: {keyword_list_str}")
 
     client = LLMFactory.get_client("theme_generation")
     config = LLMFactory.get_task_config("theme_generation")
-    prompt_template = load_prompt("generate_candidate_themes")
-
-    prompt = prompt_template.format(
-        question_text=question_text,
-    project_background=project_config.resolved_project_background,
-        keyword_list=keyword_list_str
-    )
-
-    logging.debug(f"Prompt sent to LLM:\n{prompt}")
-
-    messages = [{"role": "user", "content": prompt}]
+    substitutions: Dict[str, str] = {
+        "question_text": question_text,
+        "project_background": project_config.resolved_project_background,
+        "keyword_list": keyword_list_str
+    }
 
     def strip_json_markdown(response: str) -> str:
         if response.startswith("```json"):
@@ -166,49 +162,50 @@ def _generate_themes_for_sample(
             response = response.split("```", 1)[0].strip()
         return response
 
-    def persistent_theme_generation(prompt: str) -> str:
-        import re
-        norm_prompt = re.sub(r"\s+", " ", prompt).strip()
-        cache_key = f"theme:{norm_prompt}"
-        cached = llm_cache.get(cache_key)
-        if cached is not None:
-            logging.debug(f"[CACHE] Theme generation hit for prompt: {norm_prompt[:80]}")
-            return cached
-        else:
-            logging.debug(f"[CACHE] Theme generation miss for prompt: {norm_prompt[:80]}")
-        messages = [{"role": "user", "content": prompt}]
+    def persistent_theme_generation(substitutions: dict[str, str], cache_only: bool = False) -> str:
+        import json
+        canonical_subs = json.dumps(substitutions, sort_keys=True, separators=(",", ":"))
+        cache_key = f"generate_candidate_themes:{canonical_subs}"
         try:
-            result = client.chat_completion(
-                messages,
-                model_name=config.smart_model,
-                temperature=0.3
-            )
-            llm_cache.set(cache_key, result)
-            return result
+            cached = llm_cache.get(cache_key)
+            if cached:
+                logging.debug(f"[CACHE HIT ] Theme generation for prompt: {canonical_subs[:80]}")
+                return cached
+            else:
+                logging.debug(f"[CACHE MISS] Theme generation  for prompt: {canonical_subs[:80]}")
+                if cache_only:
+                    raise RuntimeError(f"[CACHE-ONLY] Theme generation cache miss for prompt: {canonical_subs[:80]}")
+                prompt = prompt_factory.render("generate_candidate_themes", substitutions)
+                result = client.chat_completion(
+                    [{"role": "user", "content": prompt}],
+                    model_name=config.smart_model,
+                    temperature=0.0
+                )
+                llm_cache.set(cache_key, result)
+                return result
         except Exception as e:
-            logging.warning(f"Could not generate themes for prompt: {norm_prompt[:80]}... Error, result not cached: {e}")
+            logging.warning(f"Could not generate themes for prompt: {canonical_subs[:80]}... Error, result not cached: {e}")
             return ""
 
+    response_json_str = ""
     try:
-        response_json_str = persistent_theme_generation(prompt)
+        response_json_str = persistent_theme_generation(substitutions, cache_only=os.environ.get("CACHE_ONLY_MODE", "0") == "1")
         response_json_str = strip_json_markdown(response_json_str)
         logging.debug(f"Raw LLM response: {response_json_str}")
         themes_data = json.loads(response_json_str)
 
-        # Add embeddings to each theme for the merging step
-        themes: List[Theme] = []
+        themes: List[Dict[str, Any]] = []
         for theme_data in themes_data:
             title = theme_data.get('theme_title')
             desc = theme_data.get('theme_description')
             if title and desc:
-                theme_embedding = get_embedding(f"{title}: {desc}")
+                theme_embedding = get_embedding(f"{title}: {desc}", cache_only=os.environ.get("CACHE_ONLY_MODE", "0") == "1")
                 themes.append({
                     "theme_title": title,
                     "theme_description": desc,
                     "embedding": theme_embedding
                 })
         return themes
-
     except json.JSONDecodeError as e:
         logging.error(f"JSON decode error. Raw response: {response_json_str}")
         logging.warning(f"Failed to generate or parse themes for a sample. Error: {e}")
@@ -219,21 +216,20 @@ def _generate_themes_for_sample(
         return []
 
 
-def _merge_and_finalize_themes(all_candidate_themes: List[Theme]) -> List[Dict[str, str]]:
+def _merge_and_finalize_themes(all_candidate_themes: List[Dict[str, Any]]) -> List[Dict[str, str]]:
     """Clusters and merges themes from all K samples to find stable, final themes."""
-    clusters = []
+    clusters: List[List[Dict[str, Any]]] = []
     
     for theme in all_candidate_themes:
         found_cluster = False
         for cluster in clusters:
-            # Get the embedding of the representative theme for the cluster
-            representative_embedding = cluster[0]['embedding']
-            similarity = cosine_similarity(theme['embedding'], representative_embedding)
-            
-            if similarity > project_config.similarity_threshold_theme_merging:
-                cluster.append(theme)
-                found_cluster = True
-                break
+            representative_embedding = cluster[0].get('embedding') if cluster and 'embedding' in cluster[0] else None
+            if representative_embedding is not None and 'embedding' in theme:
+                similarity = cosine_similarity(theme['embedding'], representative_embedding)
+                if similarity > project_config.similarity_threshold_theme_merging:
+                    cluster.append(theme)
+                    found_cluster = True
+                    break
         if not found_cluster:
             clusters.append([theme])
             
@@ -266,7 +262,7 @@ def find_stable_themes(trie: Trie, all_participant_ids: List[str], question_text
     keyword_map = _extract_keywords_from_trie(trie)
     
     logging.info(f"Step 2: Generating themes for {project_config.k_samples_for_validation} bootstrap samples...")
-    all_candidate_themes: List[Theme] = []
+    all_candidate_themes: List[Dict[str, Any]] = []
     
     for i in range(project_config.k_samples_for_validation):
         # Bootstrap sampling (sampling with replacement)

@@ -58,7 +58,7 @@ def assess_response_quality(response_text: str) -> str:
             logging.debug(f"[CACHE] Quality assessment hit for response: {response_text[:50]}")
             quality = cached.strip().lower()
         else:
-            quality = client.chat_completion(messages, model_name=config.fast_model, temperature=0.1)
+            quality = client.chat_completion(messages, model_name=config.fast_model, temperature=0.0)
             quality = quality.strip().lower()
             llm_cache.set(cache_key, quality)
             logging.debug(f"[CACHE] Quality assessment miss, computed and cached for response: {response_text[:50]}")

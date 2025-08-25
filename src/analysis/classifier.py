@@ -4,7 +4,7 @@ import json
 from typing import List, Dict, Optional
 
 
-from src.llm_utils.llm_factory import LLMFactory, load_prompt
+from src.llm_utils.llm_factory import LLMFactory, load_prompt, prompt_factory
 import sqlite3
 import threading
 import hashlib
@@ -71,12 +71,14 @@ def classify_responses(
     themes_json_str = json.dumps(themes, indent=2)
 
     for pid, response_text in responses.items():
-        prompt = prompt_template.format(
-            themes_json=themes_json_str,
-            user_response=response_text
-        )
+        substitutions = {
+            "themes_json": themes_json_str,
+            "user_response": response_text
+        }
+        prompt = prompt_factory.render("classify_response", substitutions)
         messages = [{"role": "user", "content": prompt}]
-        cache_key = _normalize_cache_key(prompt, config.fast_model)
+        canonical_subs = json.dumps(substitutions, sort_keys=True, separators=(",", ":"))
+        cache_key = _normalize_cache_key("classify_response:" + canonical_subs, config.fast_model)
         try:
             cached = llm_cache.get(cache_key)
             if cached is not None:
@@ -86,7 +88,8 @@ def classify_responses(
                 assigned_theme = client.chat_completion(
                     messages,
                     model_name=config.fast_model,
-                    temperature=0.0
+                    temperature=0.0,
+                    substitutions=substitutions
                 ).strip()
                 llm_cache.set(cache_key, assigned_theme)
                 logging.debug(f"[CACHE] Classification miss, computed and cached for participant {pid}")

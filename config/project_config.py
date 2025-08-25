@@ -22,6 +22,23 @@ class ProjectConfig(BaseModel):
     @property
     def resolved_learning_objectives(self) -> str:
         return self.get_text_or_file(self.learning_objectives)
+    
+    
+    # In config/project_config.py, inside the ProjectConfig class
+
+    @property
+    def resolved_learning_objectives_list(self) -> List[str]:
+        """Parses the learning objectives text into a clean list of objectives."""
+        full_text = self.resolved_learning_objectives
+        objectives = []
+        for line in full_text.splitlines():
+            line = line.strip()
+            if line.lower().startswith("objective"):
+                # Clean up "Objective 1: " prefix
+                objective_text = line.split(":", 1)[-1].strip()
+                objectives.append(objective_text)
+        return objectives
+    
     # Analysis parameters
     k_samples_for_validation: int = 5
     min_theme_occurrence_percentage: float = 0.6 # Theme must appear in 60% of K samples
@@ -48,7 +65,7 @@ class ProjectConfig(BaseModel):
             # Fallback to empty list
             return []
     # Logging configuration
-    log_level: str = "INFO"  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+    log_level: str = "DEBUG"  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
     log_file: str = "data/output/app_info.log"
 
 
