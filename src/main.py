@@ -4,13 +4,15 @@ import logging
 
 from config.project_config import project_config
 def setup_logging():
-    os.makedirs(project_config.output_dir, exist_ok=True)
+    run_output_dir = project_config.run_output_dir
+    os.makedirs(run_output_dir, exist_ok=True)
+    log_file_path = os.path.join(run_output_dir, os.path.basename(project_config.log_file))
     log_level = getattr(logging, project_config.log_level.upper(), logging.DEBUG)
     logging.basicConfig(
         level=log_level,
         format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=[
-            logging.FileHandler(project_config.log_file, mode="w", encoding="utf-8"),
+            logging.FileHandler(log_file_path, mode="w", encoding="utf-8"),
             logging.StreamHandler(sys.stdout)
         ]
     )
@@ -82,7 +84,7 @@ def analyze_single_question(question_column: str, df: pd.DataFrame) -> Dict[str,
         participant_responses
     )
     output_path = os.path.join(
-        project_config.output_dir, f"{question_column}_classifications.xlsx"
+        project_config.run_output_dir, f"{question_column}_classifications.xlsx"
     )
     classification_df.to_excel(output_path, index=False)
     logging.info(f"Classification results saved to {output_path}")
@@ -136,7 +138,11 @@ def main():
     """Main function to orchestrate the entire pipeline."""
     load_dotenv()
     # Ensure output directory exists
-    os.makedirs(project_config.output_dir, exist_ok=True)
+    os.makedirs(project_config.run_output_dir, exist_ok=True)
+    # Create/update the 'latest' symlink
+    if os.path.lexists(project_config.latest_output_dir_symlink):
+        os.remove(project_config.latest_output_dir_symlink)
+    os.symlink(project_config.run_output_dir, project_config.latest_output_dir_symlink)
 
     # Load data
     try:
@@ -161,7 +167,7 @@ def main():
     final_report = assemble_final_report(all_question_analyses)
 
     # Save the final report
-    report_path = os.path.join(project_config.output_dir, project_config.report_file)
+    report_path = os.path.join(project_config.run_output_dir, project_config.report_file)
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(final_report, f, indent=2)
 

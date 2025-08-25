@@ -49,7 +49,22 @@ class ProjectConfig(BaseModel):
     # File paths
     input_file: str = "data/input/vpn_sample_data.xlsx" # raw_survey_data.xlsx"
     output_dir: str = "data/output"
+    use_timestamped_output_dir: bool = True
     report_file: str = "report.json"
+    
+    @property
+    def run_output_dir(self) -> str:
+        import os
+        from datetime import datetime
+        if self.use_timestamped_output_dir:
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            return os.path.join(self.output_dir, timestamp)
+        return self.output_dir
+
+    @property
+    def latest_output_dir_symlink(self) -> str:
+        import os
+        return os.path.join(self.output_dir, "latest")
     
     # The columns in the Excel file to be analyzed
     # Note: Column A (ID) is assumed to be the first column
@@ -67,8 +82,8 @@ class ProjectConfig(BaseModel):
             return []
     # Logging configuration
     log_level: str = "DEBUG"  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
-    log_file: str = "data/output/app_info.log"
-    cache_db: str = "data/output/cache.sqlite"
+    log_file: str = "app_info.log"
+    cache_db: str = "data/cache.sqlite"
 
 
 # Instantiate once to be imported by other modules
