@@ -1,0 +1,6 @@
+The primary goal of this research study is to understand the consumer privacy market, 
+specifically in the areas of network privacy (VPNs) and data deletion services. 
+We aim to size the market, identify key customer needs and use cases, 
+and validate product-market fit for CLIENT’s offerings in these spaces. 
+The insights from this study will inform CLIENT’s go-to-market strategy and 
+product roadmap to best address the needs of the target market.

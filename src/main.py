@@ -3,10 +3,12 @@ import sys
 import logging
 
 from config.project_config import project_config
+
+
 def setup_logging():
-    run_output_dir = project_config.run_output_dir
-    os.makedirs(run_output_dir, exist_ok=True)
-    log_file_path = os.path.join(run_output_dir, os.path.basename(project_config.log_file))
+    run_output_dir_path = os.path.abspath( project_config.run_output_dir_path )
+    os.makedirs(run_output_dir_path, exist_ok=True)
+    log_file_path = os.path.join(run_output_dir_path, os.path.basename(project_config.log_file))
     log_level = getattr(logging, project_config.log_level.upper(), logging.DEBUG)
     logging.basicConfig(
         level=log_level,
@@ -83,9 +85,9 @@ def analyze_single_question(question_column: str, df: pd.DataFrame) -> Dict[str,
     classification_df["Response"] = classification_df["ParticipantID"].map(
         participant_responses
     )
-    output_path = os.path.join(
-        project_config.run_output_dir, f"{question_column}_classifications.xlsx"
-    )
+    output_path = os.path.abspath( os.path.join(
+        project_config.run_output_dir_path, f"{question_column}_classifications.xlsx"
+    ) )
     classification_df.to_excel(output_path, index=False)
     logging.info(f"Classification results saved to {output_path}")
 
@@ -137,20 +139,51 @@ def analyze_single_question(question_column: str, df: pd.DataFrame) -> Dict[str,
 def main():
     """Main function to orchestrate the entire pipeline."""
     load_dotenv()
-    # Ensure output directory exists
-    os.makedirs(project_config.run_output_dir, exist_ok=True)
+    # # Ensure output directory exists
+    # logging.info(f"Creating the output directory: {project_config.run_output_dir_path}")
+    # os.makedirs(project_config.run_output_dir_path, exist_ok=True)
+    # logging.info(f"Confirming if it exists: { os.path.exists(project_config.run_output_dir_path) }")
+
+    output_dir = os.path.abspath(project_config.run_output_dir_path)
+    logging.info(f"Resolved absolute output dir: {output_dir}")
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    exists = os.path.exists(output_dir)
+    logging.info(f"Directory exists after makedirs? {exists}")
+    logging.info(f"Current working directory: {os.getcwd()}")
+
+
     # Create/update the 'latest' symlink
-    if os.path.lexists(project_config.latest_output_dir_symlink):
-        os.remove(project_config.latest_output_dir_symlink)
-    os.symlink(project_config.run_output_dir, project_config.latest_output_dir_symlink)
+    latest_symlink = os.path.abspath(project_config.latest_output_dir_symlink)
+    if os.path.lexists(latest_symlink):
+        os.remove(latest_symlink)
+    os.symlink(output_dir, latest_symlink)
 
     # Load data
-    try:
-        df = pd.read_excel(project_config.input_file)
-    except FileNotFoundError:
-        logging.error(f"Error: Input file not found at {project_config.input_file}")
+    input_file = os.path.abspath(project_config.input_file)
+    logging.info(f"Resolved absolute input file: {input_file}")
+    if not os.path.exists(input_file):
+        logging.error(f"Error: Input file not found at {input_file}")
         return
-
+    input_ext = os.path.splitext(input_file)[1].lower()
+    if input_ext in ['.xlsx', '.xls']:
+        try:
+            df = pd.read_excel(input_file)
+        except FileNotFoundError:
+            logging.error(f"Error: Input file could not be read as an Excel file at {input_file}")
+            return
+    elif input_ext in ['.csv']:
+        try:
+            df = pd.read_csv(input_file)
+        except FileNotFoundError:
+            logging.error(f"Error: Input file could not be read as a CSV file at {input_file}")
+            return
+        
+            
+            
+            
+            # Convert   
     all_question_analyses = []
     with ThreadPoolExecutor() as executor:
         results = executor.map(analyze_single_question, project_config.question_columns, [df] * len(project_config.question_columns))
@@ -164,10 +197,11 @@ def main():
         logging.error("No questions were successfully analyzed. Exiting.")
         return
 
+    #TODO: Get the report title from the project background, if it doesn't have one, synthesise it with a new prompt to an LLM
     final_report = assemble_final_report(all_question_analyses)
 
     # Save the final report
-    report_path = os.path.join(project_config.run_output_dir, project_config.report_file)
+    report_path = os.path.join(project_config.run_output_dir_path, project_config.report_file)
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(final_report, f, indent=2)
 

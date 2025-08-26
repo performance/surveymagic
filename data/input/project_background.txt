@@ -1,6 +1,15 @@
-The primary goal of this research study is to understand the consumer privacy market, 
-specifically in the areas of network privacy (VPNs) and data deletion services. 
-We aim to size the market, identify key customer needs and use cases, 
-and validate product-market fit for CLIENT’s offerings in these spaces. 
-The insights from this study will inform CLIENT’s go-to-market strategy and 
-product roadmap to best address the needs of the target market.
+Project Brief
+Project Title: "The Digital Classroom": Understanding User Experience and Value Drivers in Online Learning
+Background: The online learning market has matured rapidly, moving from a niche alternative to a primary mode of education for millions worldwide. With this growth comes intense competition and evolving user expectations. Our platform, "LearnSphere," needs to move beyond simply offering courses and focus on delivering a superior, engaging, and effective learning experience to increase user retention, completion rates, and market share.
+Primary Goal: This research study aims to conduct a deep dive into the behaviors, motivations, and perceptions of online learners. The insights gathered will directly inform LearnSphere's product development roadmap, marketing messaging, and pricing strategies to better meet the needs of our target user segments.
+Target Audience for Survey: A diverse group of 100+ individuals across North America and Europe who have used at least one online learning platform (e.g., Coursera, Udemy, Skillshare, EdX, LinkedIn Learning, or university-specific platforms) in the past 12 months. The audience will include:
+University/College Students
+Working Professionals seeking career advancement
+Career Changers learning new skills
+Hobbyists and lifelong learners
+Key Research Areas:
+Motivations & Goals: What triggers the decision to take an online course?
+Platform Selection: What criteria are used to choose one platform over another?
+Engagement & Experience: Which platform features and course elements are most (and least) effective for learning?
+Perceived Outcomes: Do users feel they achieve their goals and get a return on their investment (of time and money)?
+Pricing & Value Perception: How do users perceive the value of different pricing models (subscription vs. per-course)?
