@@ -1,4 +1,50 @@
 
+# Contributing Guidelines
+
+Thank you for considering contributing to this project! We welcome improvements, bug fixes, new features, and prompt engineering.
+
+## How to Contribute
+
+1. **Fork the repository** and create a feature branch:
+    ```bash
+    git checkout -b feature/your-feature-name
+    ```
+2. **Code Style:**
+    - Follow PEP8 for Python code.
+    - Use clear, descriptive variable and function names.
+    - Add docstrings to new functions/classes.
+3. **Prompt Engineering:**
+    - Add new prompt files to `prompts/`.
+    - Name files clearly by task (e.g., `extract_keywords.txt`).
+    - Document prompt changes in your PR.
+4. **Configuration:**
+    - Update `config/llm_config.py` or `config/project_config.py` for new settings.
+    - Use Pydantic models for validation.
+5. **Testing:**
+    - Add or update tests for new modules or features.
+    - Manual testing: Run `python src/main.py` and verify output in `data/output/`.
+6. **Pull Requests:**
+    - Submit a PR with a clear description of your changes.
+    - Reference related issues if applicable.
+    - Ensure your branch is up to date with `main` before submitting.
+
+## Environment Setup
+
+- Use a virtual environment (`python -m venv .venv`).
+- Install dependencies with `pip install -r requirements.txt`.
+- Add your LLM API keys to `.env`.
+
+## Adding New LLM Providers
+
+- Update `config/llm_config.py` and `src/llm_utils/llm_factory.py`.
+- Add provider-specific logic and document usage in README.md.
+
+## Issues & Feedback
+
+- Please use GitHub Issues for bug reports and feature requests.
+
+---
+Thank you for helping improve this project!
 ### **Explanation of Components:**
 
 *   **`config/`:** Contains all configurable parameters. `llm_config.py` uses Pydantic to enforce structure and validation for LLM settings (provider, API keys, model names for different tasks). `project_config.py` holds project-specific settings like the background, objectives, and thresholds for similarity/sampling.

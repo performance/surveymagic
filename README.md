@@ -1,53 +1,79 @@
+
 # Qualitative Thematic Analysis Pipeline
 
-This project implements a robust and modular pipeline for performing thematic analysis on qualitative interview data, leveraging Large Language Models (LLMs) and advanced data structures (conversational tries).
+This project provides a robust, modular pipeline for thematic analysis of qualitative survey/interview data using Large Language Models (LLMs) and advanced data structures (conversational tries). It supports scalable, reproducible research and is ready for collaboration.
 
 ## Project Structure
 
-*   `config/`: Configuration files for LLM settings and project-specific parameters.
-*   `prompts/`: A collection of all LLM prompts, one per file, ensuring modularity and easy iteration.
-*   `src/`: Contains the core Python source code, organized into modules for LLM utilities, data processing, analysis, and report generation.
-*   `data/`: Input and output directories for raw survey data and generated reports.
+- `config/` — LLM and project configuration (Pydantic-based)
+- `prompts/` — Modular prompt files for LLM tasks
+- `src/` — Core Python code: LLM utilities, data processing, analysis, report generation
+- `data/input/` — Raw survey/interview data (Excel)
+- `data/output/` — Generated reports and classification files
 
-## Setup
+## Features
 
-1.  **Clone the repository:**
+- Conversational trie for multi-turn analysis
+- Semantic coalescing and K-fold thematic validation
+- Modular LLM interaction (OpenAI, Anthropic, etc.)
+- Pydantic config management
+- Scalable, cache-enabled design
+
+## Installation
+
+1. Clone the repository:
     ```bash
     git clone <repository_url>
     cd <project_directory>
     ```
-
-2.  **Create a virtual environment (recommended):**
+2. Create a virtual environment:
     ```bash
     python -m venv .venv
-    source .venv/bin/activate  # On Windows: .venv\Scriptsctivate
+    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
     ```
-
-3.  **Install dependencies:**
+3. Install dependencies:
     ```bash
-    pip install -r requirements.txt # (You'll need to create this file, e.g., pandas, openai, anthropic, pydantic, numpy, scikit-learn)
+    pip install -r requirements.txt
     ```
-
-4.  **Configure API Keys:**
-    Create a `.env` file in the project root or set environment variables for your LLM API keys:
-    ```
-    OPENAI_API_KEY="sk-your-openai-key"
-    ANTHROPIC_API_KEY="sk-your-anthropic-key"
-    ```
-    Ensure `config/llm_config.py` is updated to reflect your chosen LLM providers and models.
-
-5.  **Place Data:**
-    Place your `raw_survey_data.xlsx` file in the `data/input/` directory.
+4. Configure API keys:
+    - Create a `.env` file in the project root:
+      ```
+      OPENAI_API_KEY="sk-..."
+      ANTHROPIC_API_KEY="sk-..."
+      ```
+    - See `config/llm_config.py` for details.
+5. Place your data file (e.g., `raw_survey_data.xlsx`) in `data/input/`.
 
 ## Usage
 
-To run the full analysis:
-
-  ~~~bash
+To run the full analysis pipeline:
+```bash
 python src/main.py
-   ~~~
+```
+Output files will be saved in `data/output/`:
+- `report.json` — Main report
+- `q*_classifications.xlsx` — Per-question classifications
 
-The generated report (`report.json`) and individual question classification files (`q*_classifications.xlsx`) will be saved in `data/output/`.
+## Visualizer
+
+To view reports and logs in a browser, run the Flask visualizer:
+```bash
+python src/visualizer/main.py
+```
+Then open `http://localhost:5000` in your browser.
+
+## Contributing
+
+We welcome contributions! See `CONTRIBUTING.md` for guidelines.
+
+- Use feature branches and submit pull requests.
+- Follow PEP8 and project code style.
+- Add or update prompt files in `prompts/` for new LLM tasks.
+- Add tests for new modules.
+
+## License
+
+MIT License (see LICENSE file)
 
 ## Key Features
 
