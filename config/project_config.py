@@ -17,9 +17,9 @@ class ProjectConfig(BaseModel):
     max_quotes_per_theme: int = 3
 
     # --- Input files ---
-    project_background: str = "data/input/project_background.txt"
-    learning_objectives: str = "data/input/learning_objectives.txt"
-    input_file: str = "data/input/olsdr.xlsx"
+    project_background: str = "data/input_vpn/project_background.txt"
+    learning_objectives: str = "data/input_vpn/learning_objectives.txt"
+    input_file: str = "data/input_vpn/vpn_sample_data.xlsx"  # "data/input/olsdr.xlsx"
 
     # --- Output config ---
     output_dir: str = "data/output"

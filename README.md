@@ -48,6 +48,11 @@ This project provides a robust, modular pipeline for thematic analysis of qualit
 
 To run the full analysis pipeline:
 ```bash
+mkdir -p data/output
+# and paste the provided cache.sqlite under data/output/
+# This will save LLM costs for initial run of the sample data.
+# this step is optional, as a new cache will get created on the first run.
+export PYTHONPATH=.
 python src/main.py
 ```
 Output files will be saved in `data/output/`:
@@ -56,11 +61,15 @@ Output files will be saved in `data/output/`:
 
 ## Visualizer
 
-To view reports and logs in a browser, run the Flask visualizer:
+To view reports and logs in a browser, run the visualizer:
 ```bash
-python src/visualizer/main.py
+python3 -m http.server 5001 
 ```
-Then open `http://localhost:5000` in your browser.
+Then open `localhost:5001/src/visualizer/dashboard.html?report=/data/output/latest/report.json` in your browser.
+
+
+Note that the flask + jquery code is not functional, do not use that. 
+The minimal dashboard.html has all known bug fixes.
 
 ## Contributing
 
@@ -79,7 +88,7 @@ MIT License (see LICENSE file)
 
 *   **Conversational Trie:** Organizes multi-turn conversations for deeper analysis of interaction patterns.
 *   **Semantic Coalescing:** Automatically groups semantically similar questions and user responses within the trie.
-*   **K-Fold Thematic Validation (Bootstrapping):** Ensures robust and stable themes by running analysis on multiple data samples.
+*   **K-Fold Thematic Validation (Bootstrapping):** Ensures robust and stable themes by running analysis on multiple data samples. [ Experimental, for high volume data sets]
 *   **Modular LLM Interaction:** Uses an LLM factory and external prompt files for easy customization and provider switching.
 *   **Pydantic Configuration:** Manages LLM and project parameters with type safety and validation.
 *   **Scalable Design:** Built with future expansion to larger datasets and more questions in mind.

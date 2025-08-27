@@ -187,13 +187,10 @@ def main():
         except FileNotFoundError:
             logging.error(f"Error: Input file could not be read as a CSV file at {input_file}")
             return
-        
-            
-            
-            
+
             # Convert   
     all_question_analyses = []
-    with ThreadPoolExecutor() as executor:
+    with ThreadPoolExecutor(max_workers=1) as executor:
         results = executor.map(analyze_single_question, project_config.question_columns, [df] * len(project_config.question_columns))
         for result in results:
             if result:

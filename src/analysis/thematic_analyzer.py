@@ -31,7 +31,7 @@ class PersistentLLMCache:
         with self.lock, sqlite3.connect(self.db_path) as conn:
             conn.execute("REPLACE INTO llm_cache (key, value) VALUES (?, ?)", (key, value))
 
-llm_cache = PersistentLLMCache(db_path="data/output/llm_cache.sqlite")
+llm_cache = PersistentLLMCache(db_path=project_config.cache_db)
 # src/analysis/thematic_analyzer.py
 
 import random
