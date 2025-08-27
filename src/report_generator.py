@@ -1,3 +1,24 @@
+def get_report_title(project_background: str) -> str:
+    """
+    Extracts the report title from the project background. If not found, uses LLM to synthesize one.
+    """
+    # Try to extract from first non-empty line or a line starting with 'Title:'
+    for line in project_background.splitlines():
+        line = line.strip()
+        if line.lower().startswith("title:"):
+            return line.split(":", 1)[-1].strip()
+        if line and len(line.split()) > 2:
+            # Heuristic: if first non-empty line is reasonably long, use it
+            return line
+    # If not found, use LLM prompt
+    client = LLMFactory.get_client("synthesis")
+    config = LLMFactory.get_task_config("synthesis")
+    substitutions = {"project_background": project_background}
+    prompt = prompt_factory.render("get_report_title", substitutions)
+    messages = [{"role": "user", "content": prompt}]
+    response = client.chat_completion(messages, model_name=config.smart_model, temperature=0.0)
+    # Take first line of response as title
+    return response.strip().splitlines()[0] if response.strip() else "Untitled Report"
 # src/report_generator.py
 
 import json
@@ -230,9 +251,9 @@ def synthesize_objective_insights(
 
             insights.append(
                 {
-                    "objectiveText": objective,
+                    "objective_text": objective,
                     "synthesis": synthesis_text.strip(),
-                    "supportingAnalyses": [
+                    "supporting_analyses": [
                         {
                             "question_text": qa["question_text"],
                             "headline": qa["headline"],

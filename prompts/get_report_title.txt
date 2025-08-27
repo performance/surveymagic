@@ -1,0 +1,9 @@
+You are an expert research analyst. 
+Given the following project background, please try to extract a title if it is given. 
+If the background does not suggest a clear title, use your best judgment to generate one.
+Generate a concise and informative report title suitable for an executive summary. 
+
+Please return only the project title without any markup
+
+Project Background:
+{project_background}

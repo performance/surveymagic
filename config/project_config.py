@@ -24,7 +24,7 @@ class ProjectConfig(BaseModel):
     # --- Output config ---
     output_dir: str = "data/output"
     use_timestamped_output_dir: bool = True
-    report_file: str = "report_online_learning_survey_data_revised.json"
+    report_file: str = "report.json"
 
     # --- Logging / cache ---
     log_level: str = "DEBUG"  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">Thematic Analysis Report</title>
+    <style>
+        /* Minimal reset and basic styling */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: system-ui, -apple-system, sans-serif; 
+            line-height: 1.5; 
+            padding: 1rem; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+        }
+        details { margin: 1rem 0; border: 1px solid #ddd; border-radius: 4px; }
+        summary { 
+            cursor: pointer; 
+            font-weight: bold; 
+            padding: 0.75rem; 
+            background: #f5f5f5; 
+            border-radius: 4px;
+        }
+        summary:hover { background: #e5e5e5; }
+        details[open] summary { border-radius: 4px 4px 0 0; }
+        .details-content { padding: 1rem; }
+        h1, h2, h3, h4 { margin: 1rem 0 0.5rem 0; }
+        p, blockquote { margin: 0.5rem 0; }
+        .stat { font-weight: bold; color: #0066cc; }
+        blockquote { 
+            border-left: 3px solid #ccc; 
+            padding-left: 1rem; 
+            margin: 1rem 0; 
+            font-style: italic; 
+        }
+        cite { 
+            font-style: normal; 
+            font-size: 0.9em; 
+            color: #666; 
+            display: block; 
+            text-align: right; 
+            margin-top: 0.5rem; 
+        }
+        .theme { 
+            margin: 1rem 0; 
+            padding: 1rem; 
+            background: #f9f9f9; 
+            border-radius: 4px; 
+        }
+        .objective { 
+            margin: 2rem 0; 
+            padding: 1rem; 
+            border: 1px solid #eee; 
+            border-radius: 4px; 
+        }
+        ul, ol { padding-left: 2rem; }
+        a { color: #0066cc; }
+        a:visited { color: #0066cc; }
+        .loading { text-align: center; padding: 2rem; }
+        .error { color: #cc0000; padding: 1rem; background: #ffe6e6; border-radius: 4px; }
+        .hidden { display: none; }
+        nav ul { list-style: none; padding-left: 0; }
+        nav li { display: inline-block; margin-right: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">Loading report...</div>
+    
+    <div class="hidden" id="main-content">
+        <header>
+            <h1 id="report-title">Report Title</h1>
+            <p id="report-subtitle">Strategic Insights for Executive Decision-Making</p>
+        </header>
+
+        <main>
+            <section id="executive-summary-section">
+                <h2>Executive Summary</h2>
+                <div id="executive-summary"></div>
+            </section>
+
+            <section id="strategic-objectives-section">
+                <h2>Strategic Objectives & Key Insights</h2>
+                <div id="objectives-container"></div>
+            </section>
+
+            <section id="detailed-analysis-section">
+                <h2>Detailed Question Analysis</h2>
+                <div id="questions-container"></div>
+            </section>
+
+            <aside id="methodology-section" class="hidden">
+                <h2>Research Methodology & Data Quality</h2>
+                <div id="methodology-container"></div>
+            </aside>
+        </main>
+
+        <footer>
+            <nav id="navigation">
+                <h3>Quick Navigation</h3>
+                <ul id="nav-links"></ul>
+            </nav>
+        </footer>
+    </div>
+
+    <div class="hidden error" id="error-message"></div>
+
+    <script>
+        // Sample data - replace with actual JSON fetch
+        const sampleData = {
+            "report_title": "Consumer Privacy Market: Thematic Analysis",
+            "executive_summary": "**Executive Summary:**\n\nOur comprehensive study on consumer privacy, focusing on VPNs and data deletion services, reveals critical insights for shaping our client's go-to-market strategy and product roadmap. The research indicates a strong consumer demand for VPNs that are not only easy to use but also offer superior speed and security. A significant portion of users express dissatisfaction with their current VPNs, particularly around reliability and the lack of detailed information, suggesting an opportunity for our client to differentiate by enhancing these aspects.\n\nPrivacy concerns are the primary driver for individuals seeking data deletion services, although there's a notable lack of urgency among the majority to remove personal information from online databases unless under specific conditions. This suggests a more targeted approach in marketing data deletion services, emphasizing privacy protection as the key value proposition.\n\nFurthermore, the interest in setting up private VPN servers for increased privacy and the prioritization of security and privacy in VPN selection underscore the importance of these features in our client's offerings. However, the relatively low interest in actively removing online personal information highlights a potential challenge in positioning data deletion services.\n\nIn conclusion, our client should focus on developing user-friendly, high-performance VPN solutions that prioritize privacy and security, while also considering a more nuanced approach to market data deletion services, targeting those with specific privacy concerns. This strategic focus will address the key needs and preferences of the target market, positioning our client for success in the consumer privacy market.",
+            "insights_by_objective": [
+                {
+                    "objective_text": "Understand the size and segmentation of the consumer privacy market, including current usage of VPNs, identity protection, and data deletion services.",
+                    "synthesis": "Most people aren't too worried about getting their personal info off the internet, with only a few thinking about doing it if they really need to.",
+                    "supporting_analyses": [
+                        {
+                            "question_text": "Would you be interested in taking action to remove your personal information from website or online databases?",
+                            "headline": "76% Show Little Interest in Removing Online Personal Info"
+                        }
+                    ]
+                },
+                {
+                    "objective_text": "Identify the key use cases, pain points, and unmet needs driving consumer adoption of privacy solutions.",
+                    "synthesis": "People are mainly turning to privacy solutions like VPNs because they want to keep their data safe and private. However, they're not just looking for any VPN; they want one that's easy to use, fast, and super secure. The biggest complaints are about VPNs that are slow, complicated, or don't provide enough information about how they protect users' privacy, showing a clear need for solutions that address these pain points while prioritizing privacy and security above all.",
+                    "supporting_analyses": [
+                        {
+                            "question_text": "Are there any capabilities or features that you wish your current VPN service provider offered that it doesn't today?",
+                            "headline": "Users Crave Simpler VPNs with Better Speed and Security"
+                        },
+                        {
+                            "question_text": "Could you possibly recount any times when your current VPN solution did not live up to your expectations in terms of accessibility or reliability?",
+                            "headline": "Many Seek Better VPNs for Reliability and Information"
+                        }
+                    ]
+                }
+            ],
+            "question_analyses": [
+                {
+                    "question_text": "That's very insightful, thank you. Now, when it comes to choosing a VPN, could you tell me about the most important features or capabilities that you consider?",
+                    "participants_analyzed": 106,
+                    "headline": "Security Tops the List in VPN Choice Factors",
+                    "summary": "Most people (50%) prioritize security and privacy when choosing a VPN, followed by performance (26%), cost (17%), and customer support (7%).",
+                    "themes": [
+                        {
+                            "theme_title": "Security and Privacy",
+                            "theme_description": "Keeping personal information safe from hackers and not allowing anyone to track or monitor what you do online.",
+                            "participant_count": 53,
+                            "participant_percentage": 0.5,
+                            "supporting_quotes": [
+                                {
+                                    "participant_id": "4510",
+                                    "quote_text": "PRIVACY PROTECTION. I FEEL SAFE KNOWING I HAVE THAT EXTRA LAYER OF PROTECTION FROM HACKERS."
+                                },
+                                {
+                                    "participant_id": "4543",
+                                    "quote_text": "Protects me by encrypting data and masking my IP addresses, hiding my browsing activity, identity, and location, and allowing for greater privacy and autonomy."
+                                }
+                            ]
+                        },
+                        {
+                            "theme_title": "Performance and Accessibility",
+                            "theme_description": "How fast the VPN works and how easily you can get to websites or content from different places around the world.",
+                            "participant_count": 28,
+                            "participant_percentage": 0.2641509433962264,
+                            "supporting_quotes": [
+                                {
+                                    "participant_id": "4485",
+                                    "quote_text": "I take into consideration things like speed, privacy and availability of locations"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        function renderReport(data) {
+            try {
+                // Update page title and header
+                document.getElementById('page-title').textContent = data.report_title;
+                document.getElementById('report-title').textContent = data.report_title;
+
+                // Render executive summary
+                renderExecutiveSummary(data.executive_summary);
+
+                // Render objectives
+                renderObjectives(data.insights_by_objective);
+
+                // Render detailed question analyses
+                renderQuestions(data.question_analyses);
+
+                // Render methodology if present
+                if (data.methodology_appendix) {
+                    renderMethodology(data.methodology_appendix);
+                    document.getElementById('methodology-section').classList.remove('hidden');
+                }
+
+                // Generate navigation
+                generateNavigation(data);
+
+                // Show main content
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('main-content').classList.remove('hidden');
+
+            } catch (error) {
+                showError('Error rendering report: ' + error.message);
+            }
+        }
+
+        function renderExecutiveSummary(summary) {
+            const container = document.getElementById('executive-summary');
+            // Convert markdown-style bold text to HTML
+            const html = summary.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                               .replace(/\n\n/g, '</p><p>')
+                               .replace(/\n/g, '<br>');
+            container.innerHTML = '<p>' + html + '</p>';
+        }
+
+        function renderObjectives(objectives = []) {
+            const container = document.getElementById('objectives-container');
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            objectives.forEach((obj = {}, index) => {
+                const article = document.createElement('article');
+                article.className = 'objective';
+
+                const title = obj.objective_title || `Objective ${index + 1}`;
+                const objectiveText = obj.objective_text || '';
+                const synthesis = obj.synthesis || '';
+
+                // Use optional chaining + fallback to []
+                const supportingAnalyses = Array.isArray(obj.supporting_analyses) ? obj.supporting_analyses : [];
+                const analysisCount = supportingAnalyses.length;
+
+                article.innerHTML = `
+                    <h3>${escapeHtml(title)}</h3>
+                    <p><strong>Research Objective:</strong> ${escapeHtml(objectiveText)}</p>
+                    <p><strong>Key Insight:</strong> ${escapeHtml(synthesis)}</p>
+                    <details>
+                        <summary>Supporting Evidence (${analysisCount} question${analysisCount !== 1 ? 's' : ''} analyzed)</summary>
+                        <div class="details-content">
+                            <ul>
+                                ${supportingAnalyses.map(analysis => {
+                                    const qText = analysis?.question_text || '';
+                                    const headline = analysis?.headline || '';
+                                    return `<li><a href="#q-${createId(qText)}">${escapeHtml(headline)}</a></li>`;
+                                }).join('')}
+                            </ul>
+                        </div>
+                    </details>
+                `;
+
+                container.appendChild(article);
+            });
+        }
+
+        function renderQuestions(questions) {
+            const container = document.getElementById('questions-container');
+            container.innerHTML = '';
+
+            questions.forEach(question => {
+                const article = document.createElement('article');
+                article.className = 'question-analysis';
+                article.id = `q-${createId(question.question_text)}`;
+                
+                article.innerHTML = `
+                    <h3>${escapeHtml(question.headline)}</h3>
+                    <blockquote>
+                        <p><strong>Question:</strong> "${escapeHtml(question.question_text)}"</p>
+                    </blockquote>
+                    <p><strong>Key Finding:</strong> ${escapeHtml(question.headline)}</p>
+                    <p><strong>Summary:</strong> ${escapeHtml(question.summary)}</p>
+                    <p class="stat">👥 ${question.participants_analyzed} participants analyzed</p>
+                    <details>
+                        <summary>View Detailed Themes (${question.themes.length} theme${question.themes.length !== 1 ? 's' : ''} identified)</summary>
+                        <div class="details-content">
+                            ${renderThemes(question.themes)}
+                        </div>
+                    </details>
+                `;
+                
+                container.appendChild(article);
+            });
+        }
+
+        function renderThemes(themes) {
+            return themes.map(theme => `
+                <article class="theme">
+                    <h4>${escapeHtml(theme.theme_title)}</h4>
+                    <p><strong>${theme.participant_count} participants (${Math.round(theme.participant_percentage * 100)}%)</strong></p>
+                    <p>${escapeHtml(theme.theme_description)}</p>
+                    ${theme.supporting_quotes.length > 0 ? `
+                        <details>
+                            <summary>Supporting Quotes</summary>
+                            <div class="details-content">
+                                ${theme.supporting_quotes.map(quote => `
+                                    <blockquote>
+                                        <p>"${escapeHtml(quote.quote_text)}"</p>
+                                        <cite>— Participant ${escapeHtml(quote.participant_id)}</cite>
+                                    </blockquote>
+                                `).join('')}
+                            </div>
+                        </details>
+                    ` : ''}
+                </article>
+            `).join('');
+        }
+
+        function renderMethodology(methodology) {
+            const container = document.getElementById('methodology-container');
+            let html = '';
+
+            if (methodology.survey_coverage) {
+                const coverage = methodology.survey_coverage;
+                html += `
+                    <section class="survey-overview">
+                        <h3>Survey Coverage</h3>
+                        <dl>
+                            ${coverage.total_questions_fielded ? `<dt>Total Questions Fielded:</dt><dd class="stat">${coverage.total_questions_fielded}</dd>` : ''}
+                            <dt>Questions Analyzed:</dt><dd class="stat">${coverage.questions_analyzed_in_report}</dd>
+                            ${coverage.coverage_percentage ? `<dt>Coverage:</dt><dd class="stat">${Math.round(coverage.coverage_percentage * 100)}%</dd>` : ''}
+                        </dl>
+                    </section>
+                `;
+            }
+
+            if (methodology.participation_metrics) {
+                const participation = methodology.participation_metrics;
+                html += `
+                    <section class="participation-analysis">
+                        <h3>Participation Metrics</h3>
+                        ${participation.question_participation_range ? `
+                            <dl>
+                                <dt>Participation Range:</dt>
+                                <dd>
+                                    <ul>
+                                        <li><strong>Highest:</strong> ${participation.question_participation_range.maximum_participants} participants</li>
+                                        <li><strong>Lowest:</strong> ${participation.question_participation_range.minimum_participants} participants</li>
+                                        <li><strong>Average:</strong> ${Math.round(participation.question_participation_range.average_participants_per_question)} participants</li>
+                                    </ul>
+                                </dd>
+                            </dl>
+                        ` : ''}
+                    </section>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function generateNavigation(data) {
+            const navContainer = document.getElementById('nav-links');
+            const links = [
+                { href: '#executive-summary-section', text: 'Executive Summary' },
+                { href: '#strategic-objectives-section', text: 'Strategic Objectives' },
+                { href: '#detailed-analysis-section', text: 'Detailed Analysis' }
+            ];
+            
+            if (data.methodology_appendix) {
+                links.push({ href: '#methodology-section', text: 'Methodology & Data Quality' });
+            }
+
+            navContainer.innerHTML = links.map(link => 
+                `<li><a href="${link.href}">${link.text}</a></li>`
+            ).join('');
+        }
+
+        function createId(text) {
+            return text.toLowerCase()
+                      .replace(/[^a-z0-9\s]/g, '')
+                      .replace(/\s+/g, '-')
+                      .substring(0, 50);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showError(message) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('error-message').textContent = message;
+            document.getElementById('error-message').classList.remove('hidden');
+        }
+
+        // Load and render report
+        // renderReport(sampleData);
+        function loadReportFromParams() {
+            const params = new URLSearchParams(window.location.search);
+            const reportPath = params.get('report') || 'report.json';
+            // const reportPath = 'http://localhost:8000/report.json';
+            
+            fetch(reportPath)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    response_json = response.json();
+                    return response_json;
+                })
+                .then(renderReport)
+                .catch(error => showError(`Failed to load report from "${reportPath}": ${error.message}`));
+        }
+        loadReportFromParams();
+        // loadReportFromHash
+        // For testing: window.loadReport = function(jsonData) { renderReport(jsonData); };
+    </script>
+</body>
+</html>

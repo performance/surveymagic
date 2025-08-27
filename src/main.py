@@ -95,6 +95,7 @@ def analyze_single_question(question_column: str, df: pd.DataFrame) -> Dict[str,
     final_themes_with_quotes = []
     total_participants_analyzed = len(participant_responses)
 
+    used_pids = set()
     for theme in stable_themes:
         # Get all responses classified under this theme
         pids_in_theme = [
@@ -102,14 +103,20 @@ def analyze_single_question(question_column: str, df: pd.DataFrame) -> Dict[str,
         ]
         responses_in_theme = [
             {"participant_id": pid, "response": participant_responses[pid]}
-            for pid in pids_in_theme
+            for pid in pids_in_theme if pid not in used_pids
         ]
 
         quotes = select_quotes_for_theme(theme, responses_in_theme)
-
+        
+        for quote in quotes:
+            used_pids.add(quote["participant_id"]) 
+            
+        theme_title = theme["theme_title"]
+        theme_description = theme["theme_description"] 
+        logging.info( f"Pids Used upto support Theme: {theme_title} : {sorted(used_pids)}")
         theme_data = {
-            "theme_title": theme["theme_title"],
-            "theme_description": theme["theme_description"],
+            "theme_title": theme_title,
+            "theme_description": theme_description,
             "participant_count": len(pids_in_theme),
             "participant_percentage": (
                 len(pids_in_theme) / total_participants_analyzed
@@ -119,6 +126,7 @@ def analyze_single_question(question_column: str, df: pd.DataFrame) -> Dict[str,
             "supporting_quotes": quotes,
         }
         final_themes_with_quotes.append(theme_data)
+        
 
     # --- 5. Narrative Generation ---
     preliminary_analysis_data = {
@@ -197,8 +205,11 @@ def main():
         logging.error("No questions were successfully analyzed. Exiting.")
         return
 
-    #TODO: Get the report title from the project background, if it doesn't have one, synthesise it with a new prompt to an LLM
-    final_report = assemble_final_report(all_question_analyses)
+
+    from src.report_generator import get_report_title
+    project_background = project_config.resolved_project_background
+    report_title = get_report_title(project_background)
+    final_report = assemble_final_report(all_question_analyses, report_title=report_title)
 
     # Save the final report
     report_path = os.path.join(project_config.run_output_dir_path, project_config.report_file)

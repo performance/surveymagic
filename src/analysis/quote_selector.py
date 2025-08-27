@@ -21,7 +21,7 @@ def select_quotes_for_theme(theme: Dict[str, str], classified_responses: List[Di
         classified_responses: A list of dicts [{'participant_id': pid, 'response': text}] for this theme.
 
     Returns:
-        A list of dicts, each representing a quote with participantId and quoteText.
+        A list of dicts, each representing a quote with participant_id and quote_text.
     """
     if not classified_responses:
         return []
@@ -29,7 +29,7 @@ def select_quotes_for_theme(theme: Dict[str, str], classified_responses: List[Di
     client = LLMFactory.get_client("synthesis") # Use a smart model for this nuanced task
     config = LLMFactory.get_task_config("synthesis")
     responses_for_prompt = [
-        {"participantId": r['participant_id'], "responseText": r['response']} 
+        {"participant_id": r['participant_id'], "responseText": r['response']} 
         for r in classified_responses
     ]
     substitutions = {
@@ -61,8 +61,8 @@ def select_quotes_for_theme(theme: Dict[str, str], classified_responses: List[Di
         for resp in classified_responses:
             if resp['participant_id'] in selected_pids and len(quotes) < project_config.max_quotes_per_theme:
                 quotes.append({
-                    "participantId": resp['participant_id'],
-                    "quoteText": resp['response']
+                    "participant_id": resp['participant_id'],
+                    "quote_text": resp['response']
                 })
                 selected_pids.remove(resp['participant_id'])
         return quotes
